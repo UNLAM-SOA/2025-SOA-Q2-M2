@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="24dp"
+    tools:context=".ConsumoActivity"
+    android:fitsSystemWindows="true"
+    >
+    <!-- fitsSystemWindows evita que se superponga a la barra de tareas -->
+
+    <!-- Botón para volver al menú -->
+    <Button
+        android:id="@+id/btnVolverMenu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="@color/teal_700"
+        android:text="Volver"
+        android:textColor="?attr/colorOnSurface" />
+
+    <LinearLayout
+        android:id="@+id/contentLayout"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+    <!-- Título -->
+    <TextView
+        android:id="@+id/tvTitulo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Consumo de Agua"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="?attr/colorOnSurface"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Valor de consumo -->
+    <TextView
+        android:id="@+id/tvConsumo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0.00 L"
+        android:textSize="40sp"
+        android:textStyle="bold"
+        android:textColor="@color/teal_700"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Botón para actualizar -->
+    <Button
+        android:id="@+id/btnActualizar"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:text="Actualizar consumo"
+        android:backgroundTint="@color/teal_700"
+        android:textColor="@android:color/white" />
+
+</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
