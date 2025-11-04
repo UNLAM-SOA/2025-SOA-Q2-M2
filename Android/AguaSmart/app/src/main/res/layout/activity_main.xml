@@ -49,6 +49,6 @@
         android:drawableStart="@drawable/baseline_power_settings_new_24"
         android:text="Desactivar válvula"
         android:backgroundTint="@android:color/holo_red_dark"
-        android:textColor="@android:color/white" />
+        android:textColor="?attr/colorOnSurface" />
 
 </LinearLayout>
