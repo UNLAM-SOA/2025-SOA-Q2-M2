@@ -1,25 +1,27 @@
 package com.example.aguasmart;
-
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.android.material.snackbar.Snackbar;
 
-public class MainActivity extends AppCompatActivity implements MqttListener  {
+public class MainActivity extends AppCompatActivity {
 
+    // Botones
     private Button btnVerConsumo;
     private Button btnValvula;
     private Button btnMqttTest;
-
     private boolean valvulaActiva = true;
 
-    private com.example.aguasmart.mqtt.MqttHandler mqttHelper;
 
+    ///  MQTT
+    private MqttHandler mqttHandler;
+    private static final String BROKER_URI = "tcp://broker.hivemq.com:1883";
+    private static final String TOPIC = "/pruebita";
+
+    /// //////
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -34,51 +36,29 @@ public class MainActivity extends AppCompatActivity implements MqttListener  {
             startActivity(intent);
         });
 
-        actualizarEstadoBoton();
         btnValvula.setOnClickListener(v -> {
             valvulaActiva = !valvulaActiva;
             actualizarEstadoBoton();
             String mensaje = valvulaActiva ? "Válvula activada" : "Válvula desactivada";
             Snackbar.make(v, mensaje, Snackbar.LENGTH_SHORT).show();
-
-            ///  PRUEBA MQTT //////////////////////////////
-            mqttHelper = new com.example.aguasmart.mqtt.MqttHandler(this, this);
-
-            btnMqttTest.setOnClickListener(vm -> {
-                mqttHelper.publish("/pruebita", "MENSAJE DESDE ANDROID");
-                Toast.makeText(this, "Mensaje publicado", Toast.LENGTH_SHORT).show();
-            });
-
-            btnVerConsumo.setOnClickListener(vm -> {
-                startActivity(new Intent(MainActivity.this, ConsumoActivity.class));
-            });
-
-            actualizarEstadoBoton();
-            btnValvula.setOnClickListener(vm -> {
-                valvulaActiva = !valvulaActiva;
-                actualizarEstadoBoton();
-                String mensajeValvula = valvulaActiva ? "Válvula activada" : "Válvula desactivada";
-                mqttHelper.publish("/pruebita", mensajeValvula);
-                Snackbar.make(v, mensajeValvula, Snackbar.LENGTH_SHORT).show();
-            });
-
-
-        /// ////////////////////////////////////////////
         });
+
+        ///  PRUEBA MQTT //////////////////////////////
+
+        // Este botón publica el mensaje MQTT
+        btnMqttTest.setOnClickListener(v -> {
+            try {
+                mqttHandler.publish(TOPIC, "Hola desde Android!");
+                Toast.makeText(this, "Mensaje enviado a " + TOPIC, Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Error enviando mensaje: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        actualizarEstadoBoton();
+        /// ////////////////////////////////////////////
     }
 
-
-    /// / MQTT PRUEBA ////
-    @Override
-    public void onConnected() {
-        Log.d("MQTT", "Conectado correctamente al broker HiveMQ");
-    }
-
-    @Override
-    public void onMessageReceived(String topic, String message) {
-        Log.d("MQTT", "Mensaje recibido en MainActivity [" + topic + "]: " + message);
-    }
-    ///
     private void actualizarEstadoBoton() {
         if (valvulaActiva) {
             btnValvula.setText("Desactivar válvula");
@@ -91,4 +71,33 @@ public class MainActivity extends AppCompatActivity implements MqttListener  {
         }
     }
 
+    /// / MQTT PRUEBA ////
+    private void connectMqtt() {
+        mqttHandler.connect(BROKER_URI, "AndroidClient", null, null);
+
+        // Esperar conexión antes de publicar
+        new Thread(() -> {
+            try {
+                // Esperamos unos segundos para asegurar conexión
+                Thread.sleep(2000);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Conectado a MQTT", Toast.LENGTH_SHORT).show();
+                    configurarBoton();
+                });
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void configurarBoton() {
+        btnMqttTest.setOnClickListener(v -> {
+            try {
+                mqttHandler.publish(TOPIC, "Hola desde Android!");
+                Toast.makeText(this, "Mensaje enviado a " + TOPIC, Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Error enviando mensaje: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 }
