@@ -23,7 +23,15 @@ public class MqttService extends Service {
     public static final String MQTT_MESSAGE_BROADCAST = "com.example.aguasmart.MQTT_MESSAGE";
     public static final String MQTT_MESSAGE_KEY = "message";
     private static final String BROKER_URL = "tcp://test.mosquitto.org:1883";
-    private static final String TOPIC = "pruebita";
+
+    // TOPICS ///////////////////////////////////////////
+    public static final String TOPIC_TEST = "pruebita";
+
+    public static final String TOPIC_CONSUMO = "aguasmart/consumo";
+    public static final String TOPIC_VALVULA_CMD = "aguasmart/valvula/cmd"; // Android → ESP32
+    public static final String TOPIC_VALVULA_STATE = "aguasmart/valvula/estado"; // ESP32 → Android
+    /// ////////////////////////////////////////////////
+
     private MqttClient mqttClient;
     private final Handler handler = new Handler();
     private boolean isReconnecting = false;
@@ -57,16 +65,18 @@ public class MqttService extends Service {
             @Override
             public void messageArrived(String topic, MqttMessage message) {
                 String msg = new String(message.getPayload());
-                Log.d(TAG, "Mensaje recibido: " + msg);
 
-                try {
-                    Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
-                    intent.putExtra(MQTT_MESSAGE_KEY, msg);
-                    intent.setPackage(getPackageName());
-                    sendBroadcast(intent);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error enviando broadcast MQTT", e);
+                Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
+
+                if (topic.equals(TOPIC_VALVULA_STATE)) {
+                    intent.putExtra(MQTT_MESSAGE_KEY, "VALVULA:" + msg);
+                } else if (topic.equals(TOPIC_CONSUMO)) {
+                    intent.putExtra(MQTT_MESSAGE_KEY, "CONSUMO:" + msg);
+                } else {
+                    intent.putExtra(MQTT_MESSAGE_KEY, "GEN:" + msg);
                 }
+
+                sendBroadcast(intent);
             }
 
             @Override
@@ -79,9 +89,15 @@ public class MqttService extends Service {
         options.setCleanSession(true);
 
         mqttClient.connect(options);
-        mqttClient.subscribe(TOPIC, 0);
+        mqttClient.subscribe(TOPIC_TEST, 0);
+        mqttClient.subscribe(TOPIC_VALVULA_CMD, 0);
+        mqttClient.subscribe(TOPIC_VALVULA_STATE, 0);
+        mqttClient.subscribe(TOPIC_CONSUMO, 0);
 
-        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC);
+        //Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_TEST);
+        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_CONSUMO);
+        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_VALVULA_CMD);
+        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_VALVULA_STATE);
         isReconnecting = false;
 
         } catch (MqttException e) {
@@ -99,7 +115,8 @@ public class MqttService extends Service {
 
         if (intent != null && intent.hasExtra("publish")) {
             String msg = intent.getStringExtra("publish");
-            publish(msg);
+            String topic = intent.getStringExtra("topic");
+            publish(msg, topic);
         }
 
         return START_STICKY; // Mantiene la conexión MQTT viva aunque la app pase a background
@@ -117,11 +134,11 @@ public class MqttService extends Service {
         }, RECONNECT_DELAY_MS);
     }
 
-    public void publish(String message) {
+    public void publish(String message, String topic) {
         try {
             if (mqttClient != null && mqttClient.isConnected()) {
                 MqttMessage mqttMessage = new MqttMessage(message.getBytes());
-                mqttClient.publish(TOPIC, mqttMessage);
+                mqttClient.publish(topic, mqttMessage);
                 Log.d(TAG, "Mensaje publicado: " + message);
             } else {
                 Log.w(TAG, "No se puede publicar, MQTT no conectado");

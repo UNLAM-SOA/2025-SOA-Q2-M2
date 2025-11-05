@@ -41,27 +41,62 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnValvula.setOnClickListener(v -> {
-            valvulaActiva = !valvulaActiva;
-            actualizarEstadoBoton();
-            String mensaje = valvulaActiva ? "Válvula activada" : "Válvula desactivada";
-            Snackbar.make(v, mensaje, Snackbar.LENGTH_SHORT).show();
+            String comando = valvulaActiva ? "OFF" : "ON"; // querés cambiar el estado
+            enviarMensajeMqtt(this, comando, MqttService.TOPIC_VALVULA_CMD);
+
+            Snackbar.make(v, "⏳ Esperando confirmación del ESP32...", Snackbar.LENGTH_SHORT).show();
         });
+
         actualizarEstadoBoton();
 
-        ///  PRUEBA MQTT //////////////////////////////
         // --- CREAR EL BROADCAST RECEIVER ---
         mqttReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String message = intent.getStringExtra(MqttService.MQTT_MESSAGE_KEY);
-                Log.d(TAG, "Mensaje recibido");
-                if (message != null) {
-                    Toast.makeText(context, "Mensaje MQTT: " + message, Toast.LENGTH_LONG).show();
+
+                if (message == null) return;
+
+                if (message.startsWith("VALVULA:")) {
+                    String estado = message.replace("VALVULA:", "").trim();
+
+                    switch (estado) {
+                        case "ON_OK":
+                            valvulaActiva = true;
+                            actualizarEstadoBoton();
+                            Snackbar.make(findViewById(android.R.id.content),
+                                    "✅ Válvula ACTIVADA",
+                                    Snackbar.LENGTH_SHORT).show();
+                            break;
+
+                        case "OFF_OK":
+                            valvulaActiva = false;
+                            actualizarEstadoBoton();
+                            Snackbar.make(findViewById(android.R.id.content),
+                                    "✅ Válvula DESACTIVADA",
+                                    Snackbar.LENGTH_SHORT).show();
+                            break;
+
+                        default:
+                            // Si llegara algo raro, lo logueamos
+                            Log.w("MAIN", "⚠ Estado de válvula desconocido: " + estado);
+                            break;
+                    }
+
+                    return;
+                }
+
+                if (message.startsWith("CONSUMO:")) {
+                    String consumo = message.replace("CONSUMO:", "").trim();
+                    Log.d("MAIN", "Nuevo consumo: " + consumo);
+                    // Acá se actualiza la pantalla de consumo
+
+                    return;
                 }
             }
         };
 
-        // ✅ REGISTRAR EL RECEIVER (esto es lo que te faltaba ubicar)
+        // REGISTRAR EL RECEIVER (esto es lo que te faltaba ubicar)
         IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -70,14 +105,15 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(mqttReceiver, filter);
         }
 
-        // ✅ Iniciar el servicio MQTT
+        // Iniciar el servicio MQTT
         Intent mqttServiceIntent = new Intent(this, MqttService.class);
         startService(mqttServiceIntent);
 
-        // ✅ Botón publicar MQTT
+        ///  PRUEBA MQTT //////////////////////////////
+        // Botón publicar MQTT
         btnMqttTest.setOnClickListener(v -> {
             Log.d("BTN", "Presionaste el botón MQTT");
-            enviarMensajeMqtt(this, "Hola desde Android!");
+            enviarMensajeMqtt(this, "Hola desde Android!", MqttService.TOPIC_TEST);
         });
         //////////////////////////////////////////
 
@@ -95,15 +131,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /// / MQTT PRUEBA ////
-    private void enviarMensajeMqtt(Context context, String message) {
+
+    private void enviarMensajeMqtt(Context context, String message, String topic) {
         Intent intent = new Intent(context, MqttService.class);
         intent.putExtra("publish", message);
+        intent.putExtra("topic", topic);
         context.startService(intent);
     }
-    /// ////
-
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
