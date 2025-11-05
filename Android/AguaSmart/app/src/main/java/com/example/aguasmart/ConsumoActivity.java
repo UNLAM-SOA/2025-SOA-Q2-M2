@@ -2,7 +2,12 @@ package com.example.aguasmart;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -15,40 +20,58 @@ public class ConsumoActivity extends AppCompatActivity {
 
     private TextView tvConsumo;
     private Button btnActualizar;
+    private BroadcastReceiver consumoReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_consumo);
 
-        // Botón para volver al menú :)
-        Button btnVolver = findViewById(R.id.btnVolverMenu);
-        btnVolver.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(ConsumoActivity.this, MainActivity.class);
-                startActivity(intent);
-                finish();
-            }
-        });
-
         tvConsumo = findViewById(R.id.tvConsumo);
-        btnActualizar = findViewById(R.id.btnActualizar);
 
-        // Valor inicial hardcodeado
-        tvConsumo.setText(" 15.3 L");
-
-        btnActualizar.setOnClickListener(v -> {
-            // Simula actualización de datos desde el embebido
-            double nuevoConsumo = generarConsumoAleatorio();
-            tvConsumo.setText(String.format(" %.2f L", nuevoConsumo));
-            Toast.makeText(this, "Consumo actualizado", Toast.LENGTH_SHORT).show();
+        // Botón volver
+        findViewById(R.id.btnVolverMenu).setOnClickListener(v -> {
+            startActivity(new Intent(this, MainActivity.class));
+            finish();
         });
+
+        // Botón actualizar manual (opcional)
+        findViewById(R.id.btnActualizar).setOnClickListener(v -> {
+            Toast.makeText(this, "Esperando datos del ESP32...", Toast.LENGTH_SHORT).show();
+        });
+
+        // Receiver de consumo
+        consumoReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+
+                String message = intent.getStringExtra(MqttService.MQTT_MESSAGE_KEY);
+                if (message == null || !message.startsWith("CONSUMO:")) return;
+
+                String valor = message.replace("CONSUMO:", "").trim();
+
+                // Actualiza UI
+                tvConsumo.setText(String.format(" %s L", valor));
+            }
+        };
     }
 
-    // Genera un valor aleatorio entre 10 y 30 litros
-    private double generarConsumoAleatorio() {
-        Random random = new Random();
-        return 10 + (20 * random.nextDouble());
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    @Override
+    protected void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(consumoReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(consumoReceiver, filter);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(consumoReceiver);
     }
 }
