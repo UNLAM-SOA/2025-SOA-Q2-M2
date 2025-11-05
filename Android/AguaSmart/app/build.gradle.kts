@@ -29,6 +29,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
 }
 dependencies {
 
@@ -44,4 +45,6 @@ dependencies {
     implementation("org.eclipse.paho:org.eclipse.paho.android.service:1.1.1")
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 
+    //Widget Consumo
+    implementation("com.github.anastr:speedviewlib:1.6.1")
 }
