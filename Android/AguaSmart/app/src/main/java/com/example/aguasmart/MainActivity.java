@@ -1,8 +1,13 @@
 package com.example.aguasmart;
+import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.snackbar.Snackbar;
@@ -14,14 +19,13 @@ public class MainActivity extends AppCompatActivity {
     private Button btnValvula;
     private Button btnMqttTest;
     private boolean valvulaActiva = true;
+    private static final String TAG = "MAIN ACTIVITY";
 
+    private BroadcastReceiver mqttReceiver;
 
-    ///  MQTT
-    private MqttHandler mqttHandler;
-    private static final String BROKER_URI = "tcp://broker.hivemq.com:1883";
-    private static final String TOPIC = "/pruebita";
 
     /// //////
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -42,21 +46,41 @@ public class MainActivity extends AppCompatActivity {
             String mensaje = valvulaActiva ? "Válvula activada" : "Válvula desactivada";
             Snackbar.make(v, mensaje, Snackbar.LENGTH_SHORT).show();
         });
+        actualizarEstadoBoton();
 
         ///  PRUEBA MQTT //////////////////////////////
-
-        // Este botón publica el mensaje MQTT
-        btnMqttTest.setOnClickListener(v -> {
-            try {
-                mqttHandler.publish(TOPIC, "Hola desde Android!");
-                Toast.makeText(this, "Mensaje enviado a " + TOPIC, Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                Toast.makeText(this, "Error enviando mensaje: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        // --- CREAR EL BROADCAST RECEIVER ---
+        mqttReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String message = intent.getStringExtra(MqttService.MQTT_MESSAGE_KEY);
+                Log.d(TAG, "Mensaje recibido");
+                if (message != null) {
+                    Toast.makeText(context, "Mensaje MQTT: " + message, Toast.LENGTH_LONG).show();
+                }
             }
-        });
+        };
 
-        actualizarEstadoBoton();
-        /// ////////////////////////////////////////////
+        // ✅ REGISTRAR EL RECEIVER (esto es lo que te faltaba ubicar)
+        IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(mqttReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(mqttReceiver, filter);
+        }
+
+        // ✅ Iniciar el servicio MQTT
+        Intent mqttServiceIntent = new Intent(this, MqttService.class);
+        startService(mqttServiceIntent);
+
+        // ✅ Botón publicar MQTT
+        btnMqttTest.setOnClickListener(v -> {
+            Log.d("BTN", "Presionaste el botón MQTT");
+            enviarMensajeMqtt(this, "Hola desde Android!");
+        });
+        //////////////////////////////////////////
+
     }
 
     private void actualizarEstadoBoton() {
@@ -72,32 +96,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /// / MQTT PRUEBA ////
-    private void connectMqtt() {
-        mqttHandler.connect(BROKER_URI, "AndroidClient", null, null);
-
-        // Esperar conexión antes de publicar
-        new Thread(() -> {
-            try {
-                // Esperamos unos segundos para asegurar conexión
-                Thread.sleep(2000);
-                runOnUiThread(() -> {
-                    Toast.makeText(this, "Conectado a MQTT", Toast.LENGTH_SHORT).show();
-                    configurarBoton();
-                });
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }).start();
+    private void enviarMensajeMqtt(Context context, String message) {
+        Intent intent = new Intent(context, MqttService.class);
+        intent.putExtra("publish", message);
+        context.startService(intent);
     }
+    /// ////
 
-    private void configurarBoton() {
-        btnMqttTest.setOnClickListener(v -> {
-            try {
-                mqttHandler.publish(TOPIC, "Hola desde Android!");
-                Toast.makeText(this, "Mensaje enviado a " + TOPIC, Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                Toast.makeText(this, "Error enviando mensaje: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(mqttReceiver);
+
+        // Para que el MQTT NO siga corriendo en background cuando la app se cierre:
+        stopService(new Intent(this, MqttService.class));
+        // Si SÍ querés que siga — simplemente elimina la línea de arriba.
     }
 }

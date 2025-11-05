@@ -22,8 +22,7 @@
         tools:targetApi="30">
 
         <service
-            android:name="org.eclipse.paho.android.service.MqttService"
-            android:enabled="true"
+            android:name=".MqttService"
             android:exported="false" />
 
         <!-- Activity principal -->
