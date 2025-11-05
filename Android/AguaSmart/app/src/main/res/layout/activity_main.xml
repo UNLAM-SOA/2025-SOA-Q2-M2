@@ -37,6 +37,16 @@
         android:text="Ver consumo de agua"
         android:textColor="?attr/colorOnSurface" />
 
+    <Button
+        android:id="@+id/btnMqttTest"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@color/teal_700"
+        android:textColor="?attr/colorOnSurface"
+        android:text="Probar MQTT"
+        android:layout_marginTop="16dp"
+        />
+
 
     <Button
         android:id="@+id/btnValvula"
@@ -49,6 +59,6 @@
         android:drawableStart="@drawable/baseline_power_settings_new_24"
         android:text="Desactivar válvula"
         android:backgroundTint="@android:color/holo_red_dark"
-        android:textColor="@android:color/white" />
+        android:textColor="?attr/colorOnSurface" />
 
 </LinearLayout>

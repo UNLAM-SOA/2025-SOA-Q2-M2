@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.aguasmart">
 
-    <!-- Permiso para usar internet -->
+    <!-- Permisos necesarios -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".MyApp"
@@ -15,8 +19,13 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AguaSmart"
-        >
+        tools:targetApi="30">
 
+        <service
+            android:name=".MqttService"
+            android:exported="false" />
+
+        <!-- Activity principal -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -26,6 +35,7 @@
             </intent-filter>
         </activity>
 
+        <!-- Otras activities de tu app -->
         <activity android:name=".ConsumoActivity" />
 
     </application>
