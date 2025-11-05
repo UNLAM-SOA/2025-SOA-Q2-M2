@@ -59,6 +59,22 @@
         android:textColor="@color/teal_700"
         android:layout_marginBottom="32dp" />
 
+        <com.github.anastr.speedviewlib.SpeedView
+            android:id="@+id/gaugeConsumo"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
+            app:sv_minSpeed="0"
+            app:sv_maxSpeed="100"
+            app:sv_withIndicatorLight="true"
+            app:sv_tickNumber="11"
+            app:sv_unit="L"
+            app:sv_speedTextColor="?attr/colorOnSurface"
+            app:sv_unitTextColor="?attr/colorOnSurface"
+            app:sv_markColor="?attr/colorOnSurface"
+            app:sv_indicatorColor="?attr/colorOnSurface"
+            app:sv_textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="32dp"/>
+
     <!-- Botón para actualizar -->
     <Button
         android:id="@+id/btnActualizar"
