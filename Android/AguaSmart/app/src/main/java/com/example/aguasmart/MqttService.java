@@ -22,7 +22,7 @@ public class MqttService extends Service {
     private static final String TAG = "AGUA_MQTT";
     public static final String MQTT_MESSAGE_BROADCAST = "com.example.aguasmart.MQTT_MESSAGE";
     public static final String MQTT_MESSAGE_KEY = "message";
-    private static final String BROKER_URL = "tcp://test.mosquitto.org:1883";
+    private static final String BROKER_URL = "tcp://broker.hivemq.com:1883";
 
     // TOPICS ///////////////////////////////////////////
     public static final String TOPIC_TEST = "pruebita";
@@ -46,6 +46,7 @@ public class MqttService extends Service {
     }
 
     private void connect() {
+        new Thread(() -> {
         try{
         String clientId = MqttClient.generateClientId();
         mqttClient = new MqttClient(BROKER_URL, clientId, null);
@@ -107,7 +108,7 @@ public class MqttService extends Service {
             Log.e(TAG, "Error inesperado en MQTT", e);
             scheduleReconnect();
         }
-
+        }).start(); // Y .start() para que comience
     }
 
     @Override
