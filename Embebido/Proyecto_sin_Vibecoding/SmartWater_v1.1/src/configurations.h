@@ -31,4 +31,6 @@
 #define TASKS_PRIORITY    1      // Tasks priority
 #define TASKS_INTERVAL    10     // Tasks interval (ms)
 
+// ======== METRICS ========
+#define TIME_METRICS_IDLE 10000
 #endif

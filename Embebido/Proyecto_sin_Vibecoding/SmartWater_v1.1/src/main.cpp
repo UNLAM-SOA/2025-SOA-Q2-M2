@@ -4,6 +4,12 @@
 #include "wifi/wifi.h"
 #include "mqtt/mqttclient.h"
 #include <PubSubClient.h>
+#include "metrics/Metrics.h"
+
+// ======== METRICS ========
+bool METRICS_TAKEN = false;
+unsigned long initTime = 0;
+unsigned long endTime = 0;
 
 // === FreeRTOS ===
 // Queues
@@ -24,6 +30,7 @@ SmartWater* smartWater;
 
 // Function that is called when MQTT receives a message from a subscribed topic
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  initStats();
   Serial.printf("[MQTT] MSG received in topic: %s\n", topic);
   String msg;
   for (unsigned int i = 0; i < length; i++) {
@@ -32,7 +39,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.printf("[MQTT] Payload: %s\n", msg.c_str());
 
   stEvento event;
-
+  finishStats();
   if (msg == "button_on") {
     event.tipo = TIPO_EVENTO_BUTTON_ON;
   } else {
@@ -102,7 +109,8 @@ void vLogTask(void* pvParameters) {
 
 void setup() {
   Serial.begin(SERIAL_MONITOR_BAUD_RATE);
-  
+  initStats();
+  initTime = millis();
   // System Main class init
   smartWater = new SmartWater(
     PIN_DIGITAL_PULSADOR,
@@ -119,6 +127,7 @@ void setup() {
     INTERVALO_DETECCION_MS,
     INTERVALO_DURACION_ALARMA_MS
   );
+
   
   // FreeRTOS - Init Queues
   queueEvents = xQueueCreate(QUEUE_SIZE, sizeof(stEvento));
@@ -166,5 +175,11 @@ void setup() {
 }
 
 void loop(){
+  endTime = millis();
+  if(METRICS_TAKEN == false && endTime - initTime > TIME_METRICS_IDLE) {
+    METRICS_TAKEN = true;
+    debug_print("METRICAS EN REPOSO");
+    finishStats();
+  }
   // The system loop is handled by FreeRTOS in vLoopTask
 }
