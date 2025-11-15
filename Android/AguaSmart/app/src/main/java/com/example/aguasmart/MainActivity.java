@@ -1,4 +1,5 @@
 package com.example.aguasmart;
+
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,9 +13,15 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.snackbar.Snackbar;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
 
-    // Botones
     private Button btnVerConsumo;
     private Button btnValvula;
     private Button btnMqttTest;
@@ -23,8 +30,8 @@ public class MainActivity extends AppCompatActivity {
 
     private BroadcastReceiver mqttReceiver;
 
+    private static final int PERMISSIONS_REQUEST_CODE = 123;
 
-    /// //////
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,10 +48,9 @@ public class MainActivity extends AppCompatActivity {
         });
 
         btnValvula.setOnClickListener(v -> {
-            String comando = valvulaActiva ? "OFF" : "ON"; // querés cambiar el estado
+            String comando = valvulaActiva ? "OFF" : "ON";
             enviarMensajeMqtt(this, comando, MqttService.TOPIC_VALVULA_CMD);
-
-            Snackbar.make(v, "⏳ Esperando confirmación del ESP32...", Snackbar.LENGTH_SHORT).show();
+            Snackbar.make(v, "⏳ Esperando confirmación del ESP32.", Snackbar.LENGTH_SHORT).show();
         });
 
         actualizarEstadoBoton();
@@ -54,12 +60,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String message = intent.getStringExtra(MqttService.MQTT_MESSAGE_KEY);
-
                 if (message == null) return;
 
                 if (message.startsWith("VALVULA:")) {
                     String estado = message.replace("VALVULA:", "").trim();
-
                     switch (estado) {
                         case "ON_OK":
                             valvulaActiva = true;
@@ -68,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
                                     "✅ Válvula ACTIVADA",
                                     Snackbar.LENGTH_SHORT).show();
                             break;
-
                         case "OFF_OK":
                             valvulaActiva = false;
                             actualizarEstadoBoton();
@@ -76,47 +79,37 @@ public class MainActivity extends AppCompatActivity {
                                     "✅ Válvula DESACTIVADA",
                                     Snackbar.LENGTH_SHORT).show();
                             break;
-
                         default:
-                            // Si llegara algo raro, lo logueamos
                             Log.w("MAIN", "⚠ Estado de válvula desconocido: " + estado);
                             break;
                     }
-
                     return;
                 }
 
                 if (message.startsWith("CONSUMO:")) {
                     String consumo = message.replace("CONSUMO:", "").trim();
                     Log.d("MAIN", "Nuevo consumo: " + consumo);
-                    // Acá se actualiza la pantalla de consumo
-
                     return;
                 }
             }
         };
 
-        // REGISTRAR EL RECEIVER (esto es lo que te faltaba ubicar)
         IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(mqttReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             registerReceiver(mqttReceiver, filter);
         }
 
-        // Iniciar el servicio MQTT
-        Intent mqttServiceIntent = new Intent(this, MqttService.class);
-        startService(mqttServiceIntent);
+        // --- CHEQUEAR Y PEDIR PERMISOS ---
+        if (checkAndRequestPermissions()) {
+            startServices();
+        }
 
-        ///  PRUEBA MQTT //////////////////////////////
-        // Botón publicar MQTT
         btnMqttTest.setOnClickListener(v -> {
             Log.d("BTN", "Presionaste el botón MQTT");
             enviarMensajeMqtt(this, "Hola desde Android!", MqttService.TOPIC_TEST);
         });
-        //////////////////////////////////////////
-
     }
 
     private void actualizarEstadoBoton() {
@@ -131,20 +124,87 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     private void enviarMensajeMqtt(Context context, String message, String topic) {
         Intent intent = new Intent(context, MqttService.class);
         intent.putExtra("publish", message);
         intent.putExtra("topic", topic);
         context.startService(intent);
     }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(mqttReceiver);
-
-        // Para que el MQTT NO siga corriendo en background cuando la app se cierre:
+        if (mqttReceiver != null) {
+            unregisterReceiver(mqttReceiver);
+        }
         stopService(new Intent(this, MqttService.class));
-        // Si SÍ querés que siga — simplemente elimina la línea de arriba.
+        stopService(new Intent(this, ProximityService.class));
+    }
+
+    private void startServices() {
+        Intent mqttServiceIntent = new Intent(this, MqttService.class);
+        startService(mqttServiceIntent);
+
+        Intent proximityServiceIntent = new Intent(this, ProximityService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(proximityServiceIntent);
+        } else {
+            startService(proximityServiceIntent);
+        }
+    }
+
+    private boolean checkAndRequestPermissions() {
+        List<String> permissionsNeeded = new ArrayList<>();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_CONNECT);
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.BLUETOOTH_ADMIN);
+            }
+        }
+
+        // Ubicación: pedimos BOTH Fine y Coarse (coincide con el Manifest)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        }
+
+        if (!permissionsNeeded.isEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSIONS_REQUEST_CODE);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSIONS_REQUEST_CODE) {
+            boolean allGranted = true;
+            for (int grantResult : grantResults) {
+                if (grantResult != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
+                }
+            }
+
+            if (allGranted) {
+                startServices();
+            } else {
+                Toast.makeText(this, "Se requieren permisos de Bluetooth y Ubicación para esta función", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }
