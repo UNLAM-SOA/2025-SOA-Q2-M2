@@ -1,5 +1,7 @@
 package com.example.aguasmart;
 
+import static com.example.aguasmart.MqttService.TOPIC_CONSUMO;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
@@ -23,7 +25,6 @@ import com.github.anastr.speedviewlib.components.Section;
 public class ConsumoActivity extends AppCompatActivity {
 
     private TextView tvConsumo;
-    private Button btnActualizar;
     private BroadcastReceiver consumoReceiver;
 
 
@@ -56,33 +57,29 @@ public class ConsumoActivity extends AppCompatActivity {
             finish();
         });
 
-        // Botón actualizar manual (opcional)
-        findViewById(R.id.btnActualizar).setOnClickListener(v -> {
-            Toast.makeText(this, "Esperando datos del ESP32...", Toast.LENGTH_SHORT).show();
-        });
-
         // Receiver de consumo
         consumoReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
 
-                String message = intent.getStringExtra(MqttService.MQTT_MESSAGE_KEY);
-                if (message == null || !message.startsWith("CONSUMO:")) return;
+                String topic = intent.getStringExtra("topic");
+                String payload = intent.getStringExtra("payload");
 
-                String valor = message.replace("CONSUMO:", "").trim();
+                if (topic == null || payload == null || !topic.equals(TOPIC_CONSUMO)) return;
+
+
                 float consumoFloat = 0f;
                 try {
-                    consumoFloat = Float.parseFloat(valor);
-                } catch (NumberFormatException e) {
-                    e.printStackTrace();
+                    consumoFloat = Float.parseFloat(payload);
+                } catch (Exception e) {
+                    return; // ignorar mensajes que no sean un número
                 }
 
                 // Actualizar el medidor
-
                 gauge.speedTo(consumoFloat, 0);
 
                 // Actualiza UI
-                tvConsumo.setText(String.format(" %s L", valor));
+                tvConsumo.setText(payload + " L");
             }
         };
     }
