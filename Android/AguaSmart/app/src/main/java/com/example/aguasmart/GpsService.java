@@ -1,7 +1,9 @@
 package com.example.aguasmart;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
@@ -9,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
@@ -28,7 +31,7 @@ import com.google.android.gms.location.Priority;
 public class GpsService extends Service {
 
     private static final String TAG = "GpsService";
-    private static final float RADIO_LIMITE_METROS = 8.0f; // El radio de 10m
+    private static final float RADIO_LIMITE_METROS = 1.0f; // El radio de 10m
     private static final long INTERVALO_ACTUALIZACION_MS = 2000; // 10 segundos
 
     private FusedLocationProviderClient fusedLocationClient;
@@ -46,7 +49,7 @@ public class GpsService extends Service {
     public void onCreate() {
         super.onCreate();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        cargarUbicacionEsp32(); // Intentamos cargar el "Punto Cero" guardado
+        cargarUbicacionEsp32(); // cargar el "Punto Cero" guardado
 
         locationCallback = new LocationCallback() {
             @Override
@@ -82,6 +85,8 @@ public class GpsService extends Service {
 
                     Intent intent = new Intent("GPS_Rango_Alerta");
                     sendBroadcast(intent);
+
+                    enviarNotificacionDesactivacion();
                 }
             }
         };
@@ -94,8 +99,9 @@ public class GpsService extends Service {
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
         Notification notification = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_SERVICE) // Usa el ID de MyApp
-                .setContentTitle("AguaSmart Conectado (GPS)")
+                .setContentTitle("AguaSmart Conectado")
                 .setContentText("Protegiendo la válvula por ubicación GPS.")
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pendingIntent)
                 .build();
@@ -106,6 +112,16 @@ public class GpsService extends Service {
         iniciarActualizacionesDeUbicacion();
 
         return START_STICKY;
+    }
+
+    public static boolean isServiceRunning(Context context) {
+        ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (GpsService.class.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void iniciarActualizacionesDeUbicacion() {
@@ -155,6 +171,34 @@ public class GpsService extends Service {
         intent.putExtra("publish", message);
         intent.putExtra("topic", topic);
         context.startService(intent);
+    }
+    private void enviarNotificacionDesactivacion() {
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, intent, PendingIntent.FLAG_IMMUTABLE
+        );
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_ALERTAS)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Válvula apagada automáticamente")
+                .setContentText("Saliste del rango permitido. La válvula fue desactivada.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "No se puede enviar notificación: permiso denegado");
+            return;
+        }
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(1001, builder.build());
+        } else {
+            Log.w(TAG, "No se pudo obtener NotificationManager");
+        }
     }
 
     @Override

@@ -1,4 +1,3 @@
-// Este archivo está perfecto como estaba
 package com.example.aguasmart;
 
 import android.app.Application;
@@ -9,8 +8,11 @@ import androidx.appcompat.app.AppCompatDelegate;
 
 public class MyApp extends Application {
 
-    // Cambié el nombre para que sea más genérico
+    // Canal del servicio en primer plano
     public static final String CHANNEL_ID_SERVICE = "ServiceChannel";
+
+    // Canal para alertas de umbral de afua
+    public static final String CHANNEL_ID_ALERTAS = "AlertasChannel";
 
     @Override
     public void onCreate() {
@@ -21,14 +23,26 @@ public class MyApp extends Application {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+
+            // Canal servicio primer plano
             NotificationChannel serviceChannel = new NotificationChannel(
                     CHANNEL_ID_SERVICE,
                     "Servicio de Proximidad",
                     NotificationManager.IMPORTANCE_DEFAULT
             );
+
+            // Canal para alertas de válvula / GPS
+            NotificationChannel alertChannel = new NotificationChannel(
+                    CHANNEL_ID_ALERTAS,
+                    "Alertas de AguaSmart",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+
+
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(serviceChannel);
+                manager.createNotificationChannel(alertChannel);
             }
         }
     }

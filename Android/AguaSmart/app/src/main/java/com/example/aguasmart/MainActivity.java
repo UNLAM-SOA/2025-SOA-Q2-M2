@@ -1,6 +1,10 @@
 package com.example.aguasmart;
+import static com.example.aguasmart.GpsService.isServiceRunning;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +19,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull; // Importado para Permisos
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat; // Importado para Permisos
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat; // Importado para Permisos
 import com.google.android.material.snackbar.Snackbar;
 
@@ -39,7 +44,8 @@ public class MainActivity extends AppCompatActivity {
 
     private BroadcastReceiver mqttReceiver;
 
-
+    // Permissions
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 456;
     private static final int PERMISSIONS_REQUEST_CODE = 123; // ID para la solicitud de permisos
 
     /// //////
@@ -102,34 +108,35 @@ public class MainActivity extends AppCompatActivity {
                 if (topic == null || payload == null) return;
 
                 if (topic.equals(MqttService.TOPIC_VALVULA_STATE)) {
-
                     switch (payload.trim()) {
-
                         case "active":
                             valvulaActiva = true;
-
                             getSharedPreferences("VALVE_PREFS", MODE_PRIVATE)
                                     .edit()
                                     .putBoolean("valvulaActiva", true)
                                     .apply();
 
-                            runOnUiThread(() -> actualizarEstadoBoton());
+                            runOnUiThread(() -> {
+                                actualizarEstadoBoton();
+                                enviarNotificacionValvula(true);
+                            });
                             break;
 
                         case "inactive":
                             valvulaActiva = false;
-
                             getSharedPreferences("VALVE_PREFS", MODE_PRIVATE)
                                     .edit()
                                     .putBoolean("valvulaActiva", false)
                                     .apply();
 
-                            runOnUiThread(() -> actualizarEstadoBoton());
+                            runOnUiThread(() -> {
+                                actualizarEstadoBoton();
+                                enviarNotificacionValvula(false);
+                            });
                             break;
-
                     }
 
-                    return;
+                return;
                 }
 
                 if (topic.equals(MqttService.TOPIC_CONSUMO)) {
@@ -260,13 +267,11 @@ public class MainActivity extends AppCompatActivity {
         Intent mqttServiceIntent = new Intent(this, MqttService.class);
         startService(mqttServiceIntent);
 
-        // 2. Iniciar servicio de GPS
-        Intent gpsServiceIntent = new Intent(this, GpsService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(gpsServiceIntent);
-        } else {
-            startService(gpsServiceIntent);
+        // 2. Iniciar servicio de GPS (si no está ya corriendo)
+        if (!isServiceRunning(this)) {
+            startForegroundService(new Intent(this, GpsService.class));
         }
+
     }
 
     /**
@@ -276,7 +281,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean checkAndRequestPermissions() {
         List<String> permissionsNeeded = new ArrayList<>();
 
-        // Solo pedimos permisos de Ubicación (GPS)
+        // Permisos de Ubicación (GPS)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
@@ -284,9 +289,21 @@ public class MainActivity extends AppCompatActivity {
             permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
 
-        // Si la lista no está vacía, pedimos los permisos
+        // Permiso de Notificaciones (solo Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIFICATION_PERMISSION_REQUEST_CODE);
+            }
+        }
+
+        // Pedir permisos que falten
         if (!permissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this, permissionsNeeded.toArray(new String[0]), PERMISSIONS_REQUEST_CODE);
+            ActivityCompat.requestPermissions(this,
+                    permissionsNeeded.toArray(new String[0]),
+                    PERMISSIONS_REQUEST_CODE);
             return false;
         }
 
@@ -296,6 +313,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Callback que se ejecuta después de que el usuario acepta/rechaza los permisos.
      */
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -310,13 +328,19 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (allGranted) {
-                // ¡Permisos concedidos! Arrancamos los servicios.
                 Log.d(TAG, "¡Permisos de GPS CONCEDIDOS por el usuario!");
                 startServices();
             } else {
-                // Permisos denegados. La función no andará.
                 Log.w(TAG, "¡Permisos de GPS DENEGADOS por el usuario!");
                 Toast.makeText(this, "Se requieren permisos de Ubicación para esta función", Toast.LENGTH_LONG).show();
+            }
+        }
+
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Permiso de notificaciones concedido");
+            } else {
+                Log.w(TAG, "Permiso de notificaciones denegado");
             }
         }
     }
@@ -332,4 +356,32 @@ public class MainActivity extends AppCompatActivity {
             ).show();
         }
     };
+
+    private void enviarNotificacionValvula(boolean activa) {
+        // Verifica permiso en Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "No se puede enviar notificación: permiso denegado");
+            return;
+        }
+
+        String titulo = activa ? "Válvula activada" : "Válvula desactivada";
+        String texto = activa ? "La válvula se activó correctamente." : "La válvula se desactivó correctamente.";
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_ALERTAS)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(titulo)
+                .setContentText(texto)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.notify(1002, builder.build()); // ID único para la notificación
+    }
+
 }

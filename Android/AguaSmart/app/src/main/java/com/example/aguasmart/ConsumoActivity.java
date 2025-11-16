@@ -3,21 +3,23 @@ package com.example.aguasmart;
 import static com.example.aguasmart.MqttService.TOPIC_CONSUMO;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
+import android.util.Log;
 import android.widget.TextView;
-import android.widget.Toast;
-
-import com.github.anastr.speedviewlib.DeluxeSpeedView;
 import com.github.anastr.speedviewlib.SpeedView;
 import com.github.anastr.speedviewlib.components.Section;
 
@@ -27,6 +29,9 @@ public class ConsumoActivity extends AppCompatActivity {
     private TextView tvConsumo;
     private BroadcastReceiver consumoReceiver;
 
+     static final float MAX_CAPACITY = 10f;
+    private static final float THRESHOLD_3 = MAX_CAPACITY * 0.75f; // 7.5 L
+    private static final float THRESHOLD_4 = MAX_CAPACITY;          // 10 L
 
 
     @Override
@@ -43,13 +48,17 @@ public class ConsumoActivity extends AppCompatActivity {
         gauge.setSpeedometerWidth(100);
         gauge.setWithTremble(false);
 
+        float maxCapacity = 10f;
+        gauge.setMaxSpeed(maxCapacity); // maxima capacidad del medidor
 
-        // Establecer zonas (0-100 ejemplo)
+        // Zonas del medidor
         gauge.clearSections();
-        gauge.addSections(new Section(0f, 0.25f, Color.parseColor("#4CAF50")));   // Verde
-        gauge.addSections(new Section(0.25f, 0.50f, Color.parseColor("#FFEB3B"))); // Amarillo
-        gauge.addSections(new Section(0.50f, 0.75f, Color.parseColor("#FF9800"))); // Naranja
-        gauge.addSections(new Section(0.75f, 1f,   Color.parseColor("#F44336")));  // Rojo 100f, Color.parseColor("#F44336")));  // Rojo
+        gauge.addSections(new Section(0f, 2.5f, Color.parseColor("#4CAF50")));   // Verde
+        gauge.addSections(new Section(2.5f, 5f, Color.parseColor("#FFEB3B")));  // Amarillo
+        gauge.addSections(new Section(5f, 7.5f, Color.parseColor("#FF9800")));  // Naranja
+        gauge.addSections(new Section(7.5f, maxCapacity, Color.parseColor("#F44336")));  // Rojo
+
+
 
         // Botón volver
         findViewById(R.id.btnVolverMenu).setOnClickListener(v -> {
@@ -80,6 +89,13 @@ public class ConsumoActivity extends AppCompatActivity {
 
                 // Actualiza UI
                 tvConsumo.setText(payload + " L");
+
+                // --- Alertas por umbrales ---
+                if (consumoFloat >= THRESHOLD_3 && consumoFloat < THRESHOLD_4) {
+                    enviarNotificacionConsumo("⚠️ Nivel crítico", "Nivel de agua alcanzó el umbral 3 (75%)");
+                } else if (consumoFloat >= THRESHOLD_4) {
+                    enviarNotificacionConsumo("🚨 Nivel máximo alcanzado", "La válvula se desactivará automáticamente");
+                }
             }
         };
     }
@@ -102,4 +118,28 @@ public class ConsumoActivity extends AppCompatActivity {
         super.onPause();
         unregisterReceiver(consumoReceiver);
     }
+
+    private void enviarNotificacionConsumo(String titulo, String texto) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            Log.w("ConsumoActivity", "No se puede enviar notificación: permiso denegado");
+            return;
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_ALERTAS)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(titulo)
+                .setContentText(texto)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        manager.notify((int) System.currentTimeMillis(), builder.build()); // ID único
+    }
+
 }
