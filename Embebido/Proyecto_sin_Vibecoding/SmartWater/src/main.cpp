@@ -1,163 +1,145 @@
 #include "smartwater/smartwater.h"
 #include "configurations.h"
 #include "utils/utils.h"
-// #include "metrics/metrics.h"
-
-// #include "mqtt/mqttclient.h"
-#include <WiFi.h>
+#include "wifi/wifi.h"
+#include "mqtt/mqttclient.h"
 #include <PubSubClient.h>
+// This is the expected string from the CMD topic to
+// act like as a BUTTON_PUSH event.
+#define CMD_MSG_BUTTON_PUSH "button_on"
 
+// === FreeRTOS ===
+// Queues
 QueueHandle_t queueEvents;
-QueueHandle_t queueLogs;
+QueueHandle_t queueMQTT;
+// TaskHandlers
 TaskHandle_t loopTaskHandler;
 TaskHandle_t loopNewEventHandler;
 TaskHandle_t loopLogHandler;
-
-
-// MQTT
+TaskHandle_t loopMQTTHandler;
+// ====================================
+// WIFI & MQTT
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
-
-// Metrics stats
-unsigned long initTime=0;
-unsigned long  actualTime=0;
-
-
+// ====================================
+// Main Class
 SmartWater* smartWater;
+// ====================================
+// Msg struct to send to MQTT
+struct TopicLogMSG {
+  float consumption;
+  char valveState[32];
+};
 
-void tarea1(void *pvParameters) {
-  while (1) {
-    //Serial.println("tarea 1");
-    vTaskDelay(1); // se cede CPU
+// Function that is called when MQTT receives a message from a subscribed topic
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  Serial.printf("[MQTT] MSG received in topic: %s\n", topic);
+  String msg;
+  for (unsigned int i = 0; i < length; i++) {
+    msg += (char)payload[i];
   }
-}
+  Serial.printf("[MQTT] Payload: %s\n", msg.c_str());
 
-void tarea2(void *pvParameters) {
-  while (1) {
-    //Serial.println("tarea 2");
-    vTaskDelay(1);
+  stEvent event;
+
+  if (msg == CMD_MSG_BUTTON_PUSH) {
+    event.type = EVENT_TYPE_BUTTON_PUSH;
+  } else {
+    Serial.println("[MQTT] MSG not recognized, ignored");
+    return;
   }
+
+  xQueueSend(queueEvents, &event, portMAX_DELAY);
 }
-
-
-void connectWiFi(const char* ssid, const char* password) {
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    vTaskDelay(pdMS_TO_TICKS(500));
-  }
-}
-
-void connectMQTT() {
-  while (!mqttClient.connected()) {
-    if (mqttClient.connect("ESP32Client")) {
-      Serial.println("[MQTT] Connected!");
-    } else {
-      Serial.print("[MQTT] Failed, rc=");
-      Serial.println(mqttClient.state());
-      vTaskDelay(pdMS_TO_TICKS(2000));
-    }
-  }
-}
-
 
 // === FreeRTOS - Loop ===
 void vLoopTask(void *pvParameters) {
   while (1) {
-    stEvento event;
+    stEvent event;
     xQueueReceive(queueEvents, &event, portMAX_DELAY);
     smartWater->FSM(event);
-
-    //cantidad de tiempo que se va a tomar las muestras 
-    // if(actualTime-initTime>SAMPLING_TIME){
-    //   initTime=actualTime;
-    //   finishStats();
-    // }
-
   }
 }
 
 // === FreeRTOS - Event Handler ===
 void vGetNewEventTask(void *pvParameters) {
   while (1) {
-    stEvento event = smartWater->GetEvent();
-    const char* log = smartWater->GetLog();
+    stEvent event = smartWater->GetEvent();
     xQueueSend(queueEvents, &event, portMAX_DELAY);
-    // xQueueSend(queueLogs, &log, portMAX_DELAY);
     vTaskDelay(pdMS_TO_TICKS(TASKS_INTERVAL));
   }
 }
 
-// === FreeRTOS - Event Handler ===
-// void vLogTask(void *pvParameters) {
-//   while (1) {
-//     // char* log;
-//     // xQueueReceive(queueLogs, &log, portMAX_DELAY);
-//     // smartWater->SendLog(log);
-//   }
-// }
-
-void mqttTask(void* pvParameters) {
+// === FreeRTOS - MQTT Events Handler ===
+void vMqttTask(void* pvParameters) {
   connectWiFi(WIFI_SSID, WIFI_PASSWORD);
-  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
-  connectMQTT();
-
-  const TickType_t waitTime = pdMS_TO_TICKS(100);
-
-  while (true) {
-    mqttClient.loop();  // Mantiene viva la conexión
-
-    // Revisa si hay mensajes en la cola
-    char logMsg[128];
-    if (xQueueReceive(queueLogs, &logMsg, waitTime) == pdTRUE) {
-      debug_print("Enviando msj a topic");
-      debug_print(MQTT_TOPIC_NAME);
-      debug_print(logMsg);
-      mqttClient.publish(MQTT_TOPIC_NAME, logMsg);
+  initMQTT(&mqttClient, MQTT_SERVER, MQTT_PORT, MQTT_TOPIC_VALVE_CMD, mqttCallback);
+  
+  // char logMsg[128];
+  TopicLogMSG logMsg;
+  while (1) {
+    mqttClient.loop();
+    if (!mqttClient.connected()) {
+      Serial.println("[MQTT] Lost connection, retrying connection...");
+      connectMQTT(&mqttClient, MQTT_SERVER, MQTT_PORT, MQTT_TOPIC_VALVE_CMD);
+      vTaskDelay(pdMS_TO_TICKS(5000)); // Waits 5s before retrying reconnect
     }
 
-    vTaskDelay(pdMS_TO_TICKS(50)); // Pequeña espera no bloqueante
+    // If there are logs in the queue, they are sent to the MQTT Topic
+    if (xQueueReceive(queueMQTT, &logMsg, 0) == pdTRUE) {
+      char buffer[20];
+      snprintf(buffer, sizeof(buffer), "%.2f", logMsg.consumption);
+      const char* consumption = buffer;
+
+      mqttClient.publish(MQTT_TOPIC_CONSUMPTION_LOG, consumption);
+      Serial.printf("[MQTT] MSG Sent to topic %s: %s\n", MQTT_TOPIC_CONSUMPTION_LOG, consumption);
+      mqttClient.publish(MQTT_TOPIC_VALVE_STATE_LOG, logMsg.valveState);
+      Serial.printf("[MQTT] MSG Sent to topic %s: %s\n", MQTT_TOPIC_VALVE_STATE_LOG, logMsg.valveState);
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
-
-void logTask(void* pvParameters) {
+// === FreeRTOS - Log Events Handler ===
+void vLogTask(void* pvParameters) {
   while (true) {
-    char msg[64];
-    snprintf(msg, sizeof(msg), smartWater->GetLog());
+    TopicLogMSG log;
+    log.consumption = smartWater->GetConsumption();
+    snprintf(log.valveState, sizeof(log.valveState), "%s", smartWater->GetValveState());
 
-    // Enviar a la cola
-    if (xQueueSend(queueLogs, &msg, 0) != pdTRUE) {
-      Serial.println("[WARN] Cola MQTT llena, descartando log");
-    }
+    // Send Log to MQTT Queue
+    if (xQueueSend(queueMQTT, &log, 0) != pdTRUE) {
+      Serial.println("[WARN] MQTT Queue is full, discarding log");
+    } 
 
-    vTaskDelay(pdMS_TO_TICKS(5000));  // Cada 5 segundos
+    vTaskDelay(pdMS_TO_TICKS(LOG_TIME_MS)); 
   }
 }
-
 
 void setup() {
   Serial.begin(SERIAL_MONITOR_BAUD_RATE);
   
   // System Main class init
   smartWater = new SmartWater(
-    PIN_DIGITAL_PULSADOR,
-    PIN_DIGITAL_CAUDALIMETRO,
+    PIN_DIGITAL_BUTTON,
+    PIN_DIGITAL_FLOWMETER,
     PIN_PWM_BUZZER,
-    PIN_DIGITAL_RELAY_ELECTROVALVULA,
-    UMBRAL_CONSUMO_1,
-    UMBRAL_CONSUMO_2,
-    UMBRAL_CONSUMO_3,
-    WIFI_SSID,
-    WIFI_PASSWORD,
-    MQTT_TOPIC_NAME,
+    PIN_DIGITAL_VALVE_RELAY,
+    CONSUMPTION_THRESHOLD_1,
+    CONSUMPTION_THRESHOLD_2,
+    CONSUMPTION_THRESHOLD_3,
+    MAX_CAPACITY,
+    MQTT_TOPIC_CONSUMPTION_LOG,
     MQTT_SERVER,
     MQTT_PORT,
-    INTERVALO_DETECCION_MS
+    DETECTION_INTERVAL_MS,
+    ALARM_DURATION_MS
   );
   
-  // FreeRTOS - Init Event Queue
-  queueEvents = xQueueCreate(QUEUE_SIZE, sizeof(stEvento));
-  queueLogs = xQueueCreate(QUEUE_SIZE, sizeof(char[32]));
+  // FreeRTOS - Init Queues
+  queueEvents = xQueueCreate(QUEUE_SIZE, sizeof(stEvent));
+  queueMQTT = xQueueCreate(QUEUE_SIZE, sizeof(TopicLogMSG));
   
   // FreeRTOS - Loop
   xTaskCreate(
@@ -179,22 +161,25 @@ void setup() {
     &loopNewEventHandler
   );
 
-  // FreeRTOS - Log handler
-  // xTaskCreate(
-  //   vLogTask,
-  //   "LogTask",
-  //   STACK_SIZE,
-  //   NULL,
-  //   TASKS_PRIORITY,
-  //   &loopLogHandler
-  // );
+  // FreeRTOS - MQTT events handler
+  xTaskCreate(
+    vMqttTask, 
+    "MQTT Task", 
+    STACK_SIZE, 
+    NULL, 
+    TASKS_PRIORITY, 
+    &loopMQTTHandler
+  );
 
-  xTaskCreatePinnedToCore(mqttTask, "MQTT Task", 4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(logTask, "Log Task", 2048, NULL, 1, NULL, 1);
-
-  // initStats();
-  // initTime=millis();
-
+  // FreeRTOS - Log events
+  xTaskCreate(
+    vLogTask, 
+    "Log Task", 
+    STACK_SIZE, 
+    NULL, 
+    TASKS_PRIORITY, 
+    &loopLogHandler
+  );
 }
 
 void loop(){
