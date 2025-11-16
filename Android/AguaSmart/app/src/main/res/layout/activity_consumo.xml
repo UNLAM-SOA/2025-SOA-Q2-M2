@@ -73,6 +73,7 @@
             app:sv_markColor="?attr/colorOnSurface"
             app:sv_indicatorColor="?attr/colorOnSurface"
             app:sv_textColor="?attr/colorOnSurface"
+            app:sv_speedometerWidth="40dp"
             android:layout_marginBottom="32dp"/>
 
 

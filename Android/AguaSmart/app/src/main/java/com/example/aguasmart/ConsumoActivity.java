@@ -53,12 +53,12 @@ public class ConsumoActivity extends AppCompatActivity {
 
         // Zonas del medidor
         gauge.clearSections();
-        gauge.addSections(new Section(0f, 2.5f, Color.parseColor("#4CAF50")));   // Verde
-        gauge.addSections(new Section(2.5f, 5f, Color.parseColor("#FFEB3B")));  // Amarillo
-        gauge.addSections(new Section(5f, 7.5f, Color.parseColor("#FF9800")));  // Naranja
-        gauge.addSections(new Section(7.5f, maxCapacity, Color.parseColor("#F44336")));  // Rojo
-
-
+        gauge.addSections(
+                new Section(0f, 0.25f, Color.parseColor("#4CAF50")),   // Verde 0–25%
+                new Section(0.25f, 0.50f, Color.parseColor("#FFEB3B")), // Amarillo 25–50%
+                new Section(0.50f, 0.75f, Color.parseColor("#FF9800")), // Naranja 50–75%
+                new Section(0.75f, 1f, Color.parseColor("#F44336"))     // Rojo 75–100%
+        );
 
         // Botón volver
         findViewById(R.id.btnVolverMenu).setOnClickListener(v -> {
