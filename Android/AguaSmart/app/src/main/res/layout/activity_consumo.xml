@@ -75,14 +75,6 @@
             app:sv_textColor="?attr/colorOnSurface"
             android:layout_marginBottom="32dp"/>
 
-    <!-- Botón para actualizar -->
-    <Button
-        android:id="@+id/btnActualizar"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:text="Actualizar consumo"
-        android:backgroundTint="@color/teal_700"
-        android:textColor="@android:color/white" />
 
 </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

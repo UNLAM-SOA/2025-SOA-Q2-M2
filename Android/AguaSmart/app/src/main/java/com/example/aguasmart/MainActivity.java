@@ -31,15 +31,14 @@ public class MainActivity extends AppCompatActivity {
     // Botones
     private Button btnVerConsumo;
     private Button btnValvula;
-    private Button btnMqttTest;
     private Button btnFijarUbicacion; // Botón nuevo para GPS
 
     private FusedLocationProviderClient locationClient; // Cliente GPS para el botón
-
-    private boolean valvulaActiva = true;
+    private boolean valvulaActiva = false; // valor neutral hasta recibir estado real
     private static final String TAG = "MAIN ACTIVITY";
 
     private BroadcastReceiver mqttReceiver;
+
 
     private static final int PERMISSIONS_REQUEST_CODE = 123; // ID para la solicitud de permisos
 
@@ -54,11 +53,14 @@ public class MainActivity extends AppCompatActivity {
         // --- FindViewById ---
         btnVerConsumo = findViewById(R.id.btnVerConsumo);
         btnValvula = findViewById(R.id.btnValvula);
-        btnMqttTest = findViewById(R.id.btnMqttTest);
         btnFijarUbicacion = findViewById(R.id.btnFijarUbicacion); // Nuevo
+
 
         // Inicializar el cliente de GPS para el botón
         locationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        IntentFilter gpsFilter = new IntentFilter("GPS_Rango_Alerta");
+        registerReceiver(gpsRangeReceiver, gpsFilter);
 
         // --- OnClickListeners ---
         btnVerConsumo.setOnClickListener(v -> {
@@ -66,9 +68,21 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        SharedPreferences prefs = getSharedPreferences("VALVE_PREFS", MODE_PRIVATE);
+        valvulaActiva = prefs.getBoolean("valvulaActiva", false);
+
+        actualizarEstadoBoton();
+
         btnValvula.setOnClickListener(v -> {
-            String comando = valvulaActiva ? "OFF" : "ON"; // querés cambiar el estado
+            String comando = "button_push";
             enviarMensajeMqtt(this, comando, MqttService.TOPIC_VALVULA_CMD);
+
+            // Actualiza visual mientras espera la respuesta del ESP32
+            runOnUiThread(() -> {
+                btnValvula.setText("Esperando...");
+                btnValvula.setBackgroundTintList(getColorStateList(android.R.color.darker_gray));
+            });
+
             Snackbar.make(v, "⏳ Esperando confirmación del ESP32...", Snackbar.LENGTH_SHORT).show();
         });
 
@@ -77,48 +91,53 @@ public class MainActivity extends AppCompatActivity {
             fijarUbicacionActualComoCero();
         });
 
-        actualizarEstadoBoton();
-
         // --- CREAR EL BROADCAST RECEIVER ---
         mqttReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                String message = intent.getStringExtra(MqttService.MQTT_MESSAGE_KEY);
 
-                if (message == null) return;
+                String topic = intent.getStringExtra("topic");
+                String payload = intent.getStringExtra("payload");
 
-                if (message.startsWith("VALVULA:")) {
-                    String estado = message.replace("VALVULA:", "").trim();
-                    switch (estado) {
-                        case "ON_OK":
+                if (topic == null || payload == null) return;
+
+                if (topic.equals(MqttService.TOPIC_VALVULA_STATE)) {
+
+                    switch (payload.trim()) {
+
+                        case "active":
                             valvulaActiva = true;
-                            actualizarEstadoBoton();
-                            Snackbar.make(findViewById(android.R.id.content),
-                                    "✅ Válvula ACTIVADA",
-                                    Snackbar.LENGTH_SHORT).show();
+
+                            getSharedPreferences("VALVE_PREFS", MODE_PRIVATE)
+                                    .edit()
+                                    .putBoolean("valvulaActiva", true)
+                                    .apply();
+
+                            runOnUiThread(() -> actualizarEstadoBoton());
                             break;
-                        case "OFF_OK":
+
+                        case "inactive":
                             valvulaActiva = false;
-                            actualizarEstadoBoton();
-                            Snackbar.make(findViewById(android.R.id.content),
-                                    "✅ Válvula DESACTIVADA",
-                                    Snackbar.LENGTH_SHORT).show();
+
+                            getSharedPreferences("VALVE_PREFS", MODE_PRIVATE)
+                                    .edit()
+                                    .putBoolean("valvulaActiva", false)
+                                    .apply();
+
+                            runOnUiThread(() -> actualizarEstadoBoton());
                             break;
-                        default:
-                            Log.w("MAIN", "⚠ Estado de válvula desconocido: " + estado);
-                            break;
+
                     }
+
                     return;
                 }
 
-                if (message.startsWith("CONSUMO:")) {
-                    String consumo = message.replace("CONSUMO:", "").trim();
-                    Log.d("MAIN", "Nuevo consumo: " + consumo);
-                    // Acá se actualiza la pantalla de consumo
-                    return;
+                if (topic.equals(MqttService.TOPIC_CONSUMO)) {
+                    Log.d("MAIN", "Nuevo consumo: " + payload);
                 }
             }
         };
+
 
         // REGISTRAR EL RECEIVER
         IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
@@ -139,13 +158,6 @@ public class MainActivity extends AppCompatActivity {
             // Si no, esperamos a que el usuario responda
             Log.d(TAG, "No teníamos permisos. Solicitando...");
         }
-
-        ///  PRUEBA MQTT //////////////////////////////
-        btnMqttTest.setOnClickListener(v -> {
-            Log.d("BTN", "Presionaste el botón MQTT");
-            enviarMensajeMqtt(this, "Hola desde Android!", MqttService.TOPIC_TEST);
-        });
-        //////////////////////////////////////////
     }
 
     private void actualizarEstadoBoton() {
@@ -174,6 +186,8 @@ public class MainActivity extends AppCompatActivity {
         if (mqttReceiver != null) {
             unregisterReceiver(mqttReceiver);
         }
+
+        unregisterReceiver(gpsRangeReceiver);
 
         // Detenemos AMBOS servicios
         stopService(new Intent(this, MqttService.class));
@@ -306,4 +320,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
+    private final BroadcastReceiver gpsRangeReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            Snackbar.make(
+                    findViewById(android.R.id.content),
+                    "🚨 Saliste del rango. Apagando válvula...",
+                    Snackbar.LENGTH_LONG
+            ).show();
+        }
+    };
 }

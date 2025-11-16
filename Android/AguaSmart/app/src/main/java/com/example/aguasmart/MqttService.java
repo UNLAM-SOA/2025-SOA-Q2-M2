@@ -21,15 +21,15 @@ public class MqttService extends Service {
 
     private static final String TAG = "AGUA_MQTT";
     public static final String MQTT_MESSAGE_BROADCAST = "com.example.aguasmart.MQTT_MESSAGE";
-    public static final String MQTT_MESSAGE_KEY = "message";
+    //private static final String BROKER_URL = "tcp://broker.emqx.io:1883"; //broker alternativo
     private static final String BROKER_URL = "tcp://broker.hivemq.com:1883";
 
     // TOPICS ///////////////////////////////////////////
     public static final String TOPIC_TEST = "pruebita";
 
-    public static final String TOPIC_CONSUMO = "aguasmart/consumo";
-    public static final String TOPIC_VALVULA_CMD = "aguasmart/valvula/cmd"; // Android → ESP32
-    public static final String TOPIC_VALVULA_STATE = "aguasmart/valvula/estado"; // ESP32 → Android
+    public static final String TOPIC_CONSUMO = "aguasmart/consume";
+    public static final String TOPIC_VALVULA_CMD = "aguasmart/valve/cmd"; // Android → ESP32
+    public static final String TOPIC_VALVULA_STATE = "aguasmart/valve/state"; // ESP32 → Android
     /// ////////////////////////////////////////////////
 
     private MqttClient mqttClient;
@@ -66,16 +66,13 @@ public class MqttService extends Service {
             @Override
             public void messageArrived(String topic, MqttMessage message) {
                 String msg = new String(message.getPayload());
+                Log.d(TAG, "Mensaje recibido → topic: " + topic + " payload: " + msg);
 
                 Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
 
-                if (topic.equals(TOPIC_VALVULA_STATE)) {
-                    intent.putExtra(MQTT_MESSAGE_KEY, "VALVULA:" + msg);
-                } else if (topic.equals(TOPIC_CONSUMO)) {
-                    intent.putExtra(MQTT_MESSAGE_KEY, "CONSUMO:" + msg);
-                } else {
-                    intent.putExtra(MQTT_MESSAGE_KEY, "GEN:" + msg);
-                }
+                // Enviar topic + mensaje
+                intent.putExtra("topic", topic);
+                intent.putExtra("payload", msg);
 
                 sendBroadcast(intent);
             }

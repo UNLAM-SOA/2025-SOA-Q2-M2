@@ -66,17 +66,22 @@ public class GpsService extends Service {
                 float distancia = ubicacionActual.distanceTo(ubicacionEsp32);
                 Log.d(TAG, "Distancia actual al 'Punto Cero': " + distancia + " metros.");
 
-                // --- Lógica de la Válvula ---
-                if (distancia <= RADIO_LIMITE_METROS && !estaDentroDelRadio) {
-                    // Acabamos de ENTRAR al radio
-                    Log.i(TAG, "Entrando al radio. Enviando ON.");
+
+                // Si aún no sabemos si está dentro o fuera, inicializar
+                if (!estaDentroDelRadio && distancia <= RADIO_LIMITE_METROS) {
                     estaDentroDelRadio = true;
-                    controlarValvula(true); // Abrir
-                } else if (distancia > RADIO_LIMITE_METROS && estaDentroDelRadio) {
+                }
+
+                // --- Lógica de la Válvula ---
+                if (distancia > RADIO_LIMITE_METROS && estaDentroDelRadio) {
                     // Acabamos de SALIR del radio
-                    Log.i(TAG, "Saliendo del radio. Enviando OFF.");
+                    Log.i(TAG, "Saliendo del radio. Enviando comando para desactivar válvula.");
                     estaDentroDelRadio = false;
+
                     controlarValvula(false); // Cerrar
+
+                    Intent intent = new Intent("GPS_Rango_Alerta");
+                    sendBroadcast(intent);
                 }
             }
         };
@@ -140,7 +145,7 @@ public class GpsService extends Service {
 
     // --- Métodos de MQTT (copiados) ---
     private void controlarValvula(boolean activar) {
-        String comando = activar ? "ON" : "OFF";
+        String comando = "deactivate_valve";
         Log.i(TAG, "Enviando comando de válvula: " + comando);
         enviarMensajeMqtt(this, comando, MqttService.TOPIC_VALVULA_CMD);
     }
