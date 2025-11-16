@@ -6,7 +6,7 @@
 #include <PubSubClient.h>
 // This is the expected string from the CMD topic to
 // act like as a BUTTON_PUSH event.
-#define CMD_MSG_BUTTON_PUSH "button_on"
+#define CMD_MSG_BUTTON_PUSH "button_push"
 
 // === FreeRTOS ===
 // Queues

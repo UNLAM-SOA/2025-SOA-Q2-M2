@@ -8,9 +8,9 @@
 // ======== MQTT ========
 #define MQTT_SERVER "broker.hivemq.com"   // Public Broker
 #define MQTT_PORT 1883
-#define MQTT_TOPIC_CONSUMPTION_LOG "smartwater/consume"  // Publish consumption Topic
-#define MQTT_TOPIC_VALVE_STATE_LOG "smartwater/valve/state"  // Publish valve state Topic
-#define MQTT_TOPIC_VALVE_CMD "smartwater/valve/cmd"   // Command valve Topic  
+#define MQTT_TOPIC_CONSUMPTION_LOG "aguasmart/consume"  // Publish consumption Topic
+#define MQTT_TOPIC_VALVE_STATE_LOG "aguasmart/valve/state"  // Publish valve state Topic
+#define MQTT_TOPIC_VALVE_CMD "aguasmart/valve/cmd"   // Command valve Topic  
 
 // ======== SYSTEM ========
 #define SERIAL_MONITOR_BAUD_RATE 115200
