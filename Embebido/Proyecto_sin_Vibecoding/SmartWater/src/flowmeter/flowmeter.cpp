@@ -2,16 +2,12 @@
 #include "Arduino.h"
 
 // Variables para conteo de pulsos (volatile porque se usan en ISR)
-volatile unsigned long pulsos_totales = 0;
-volatile unsigned long pulsos_muestra = 0;
+volatile unsigned long TOTAL_PULSES = 0;
+volatile unsigned long SAMPLE_PULSES = 0;
 
-unsigned long tiempo_ultima_muestra = 0;
-long TIEMPO_MUESTRA_CAUDAL_MS = 1000;
-float FACTOR_K = 3.75;
-
-void IRAM_ATTR contarPulsos() {
-  pulsos_totales++;
-  pulsos_muestra++;
+void IRAM_ATTR countPulses() {
+  TOTAL_PULSES++;
+  SAMPLE_PULSES++;
 }
 
 FlowMeter :: FlowMeter(){}
@@ -19,30 +15,30 @@ FlowMeter :: FlowMeter(){}
 FlowMeter :: FlowMeter(int pinNumber){
     this->pinNumber = pinNumber;
     pinMode(pinNumber, INPUT);
-    attachInterrupt(digitalPinToInterrupt(pinNumber), contarPulsos, RISING);
+    attachInterrupt(digitalPinToInterrupt(pinNumber), countPulses, RISING);
 }
 
 float FlowMeter :: GetConsumptionSinceLastMeasurement(){
-  unsigned long tiempo_actual = millis();
-  unsigned long tiempo_transcurrido = tiempo_actual - tiempo_ultima_muestra;
+  long NOW = millis();
+  long ELAPSED_TIME = NOW - LAST_MEASUREMENT_TIME;
   
-  // Actualizar cada segundo (o según TIEMPO_MUESTRA_CAUDAL_MS)
-  if (tiempo_transcurrido >= TIEMPO_MUESTRA_CAUDAL_MS) {
-    // Calcular frecuencia de pulsos en Hz
-    float frecuencia = (pulsos_muestra * 1000.0) / tiempo_transcurrido;
+  if (ELAPSED_TIME >= FLOW_RATE_SAMPLE_TIME_MS) {
+    // Calculate pulse frequency in Hz
+    float frequency = (SAMPLE_PULSES * 1000.0) / ELAPSED_TIME;
     
-    // Convertir frecuencia a caudal en L/min
-    float caudal_actual = frecuencia / FACTOR_K;
+    // Convert frequency to flow rate in L/min
+    float current_flow = frequency / MEASUREMENT_CORRECTION_FACTOR;
     
-    // Calcular volumen incremental: Q(L/min) * tiempo(min)
-    float tiempo_min = tiempo_transcurrido / 60000.0;
-    float volumen_incremental = caudal_actual * tiempo_min;
+    // Calculate incremental volume: Q(L/min) * time(min)
+    float time_mins = ELAPSED_TIME / 60000.0;
+    float incremental_volume = current_flow * time_mins;
     
-    // Resetear contadores para la próxima muestra
-    pulsos_muestra = 0;
-    tiempo_ultima_muestra = tiempo_actual;
+    // Reset counters for the next sample
+    SAMPLE_PULSES = 0;
+    LAST_MEASUREMENT_TIME = NOW;
 
-    return volumen_incremental;
+    return incremental_volume;
   }
+  
   return 0;
 }

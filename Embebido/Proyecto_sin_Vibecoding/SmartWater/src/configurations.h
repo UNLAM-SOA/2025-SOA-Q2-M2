@@ -6,24 +6,25 @@
 #define WIFI_PASSWORD "GTZFTYZMKNMM"
 
 // ======== MQTT ========
-#define MQTT_SERVER "broker.hivemq.com"        // Public Broker
+#define MQTT_SERVER "broker.hivemq.com"   // Public Broker
 #define MQTT_PORT 1883
-#define MQTT_TOPIC_NAME "unlam/soa/m2/test/mensaje"  // Publish Topic
+#define MQTT_TOPIC_CONSUMPTION_LOG "smartwater/consume"  // Publish consumption Topic
+#define MQTT_TOPIC_VALVE_STATE_LOG "smartwater/valve/state"  // Publish valve state Topic
+#define MQTT_TOPIC_VALVE_CMD "smartwater/valve/cmd"   // Command valve Topic  
 
 // ======== SYSTEM ========
 #define SERIAL_MONITOR_BAUD_RATE 115200
-#define PIN_DIGITAL_PULSADOR 19
-#define PIN_DIGITAL_CAUDALIMETRO 5
+#define PIN_DIGITAL_BUTTON 19
+#define PIN_DIGITAL_FLOWMETER 5
 #define PIN_PWM_BUZZER 4
-#define PIN_DIGITAL_RELAY_ELECTROVALVULA 16
-#define CAPACIDAD_MAXIMA 100.0
-#define UMBRAL_CONSUMO_1 CAPACIDAD_MAXIMA * 0.25
-#define UMBRAL_CONSUMO_2 CAPACIDAD_MAXIMA * 0.50
-#define UMBRAL_CONSUMO_3 CAPACIDAD_MAXIMA * 0.75
-#define INTERVALO_DETECCION_MS 50
-//cantidad de tiempo que se desea tomar valores de muestreo de cpu y memoria
-#define SAMPLING_TIME 10000
-
+#define PIN_DIGITAL_VALVE_RELAY 16
+#define MAX_CAPACITY 10.0
+#define CONSUMPTION_THRESHOLD_1 MAX_CAPACITY * 0.25
+#define CONSUMPTION_THRESHOLD_2 MAX_CAPACITY * 0.50
+#define CONSUMPTION_THRESHOLD_3 MAX_CAPACITY * 0.75
+#define DETECTION_INTERVAL_MS 50
+#define ALARM_DURATION_MS 2000
+#define LOG_TIME_MS 2500
 
 // ======== FREERTOS ========
 #define QUEUE_SIZE        10     // Events Queue Size

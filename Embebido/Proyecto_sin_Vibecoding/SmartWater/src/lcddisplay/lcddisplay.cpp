@@ -6,19 +6,24 @@ int lcdRows = 2;
 
 LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows); 
 
-LCDDisplay :: LCDDisplay(){
-    // initialize LCD
+LCDDisplay :: LCDDisplay(){}
+
+LCDDisplay :: LCDDisplay(long REFRESH_RATE){
+    this->REFRESH_RATE_MS = REFRESH_RATE;
     lcd.init();
-    // turn on LCD backlight                      
     lcd.backlight();
 }
 
-void LCDDisplay :: Write(const char* msg, const char* msg2){
-    lcd.clear(); 
-     // set cursor to first column, first row
-    lcd.setCursor(0, 0);
-    lcd.print(msg);
-    // set cursor to first column, second row
-    lcd.setCursor(0,1);
-    lcd.print(msg2);
+void LCDDisplay :: Write(const char* msgFirstRow, const char* msgSecondRow){
+    long NOW = millis();
+    if (NOW - LAST_WRITE_TIME > REFRESH_RATE_MS) {
+        lcd.clear(); 
+         // set cursor to first column, first row
+        lcd.setCursor(0, 0);
+        lcd.print(msgFirstRow);
+        // set cursor to first column, second row
+        lcd.setCursor(0,1);
+        lcd.print(msgSecondRow);
+        LAST_WRITE_TIME = NOW;
+    }
 }

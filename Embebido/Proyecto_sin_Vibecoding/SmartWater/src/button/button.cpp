@@ -9,14 +9,5 @@ Button :: Button(int pinNumber){
 }
 
 bool Button :: IsPushed() {
-  bool lectura_sensor = digitalRead(pinNumber);
-  if (ultimo_estado_pulsador == LOW && lectura_sensor == HIGH) {
-    delay(50); // Debounce simple
-    lectura_sensor = digitalRead(pinNumber); // Verificar nuevamente
-    if (lectura_sensor == HIGH) {
-      estado_interruptor = !estado_interruptor;
-    }
-  }
-  ultimo_estado_pulsador = lectura_sensor;
-  return estado_interruptor;
+  return digitalRead(pinNumber) == HIGH;
 }
