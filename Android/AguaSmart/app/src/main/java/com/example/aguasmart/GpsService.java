@@ -31,7 +31,7 @@ import com.google.android.gms.location.Priority;
 public class GpsService extends Service {
 
     private static final String TAG = "GpsService";
-    private static final float RADIO_LIMITE_METROS = 1.0f; // El radio de 10m
+    private static final float RADIO_LIMITE_METROS = 20.0f; // El radio de 10m
     private static final long INTERVALO_ACTUALIZACION_MS = 2000; // 10 segundos
 
     private FusedLocationProviderClient fusedLocationClient;

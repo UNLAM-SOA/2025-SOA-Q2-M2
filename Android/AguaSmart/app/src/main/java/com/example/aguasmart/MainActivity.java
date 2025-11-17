@@ -63,10 +63,14 @@ public class MainActivity extends AppCompatActivity {
 
 
         // Inicializar el cliente de GPS para el botón
-        locationClient = LocationServices.getFusedLocationProviderClient(this);
-
+        // --- REGISTRAR gpsRangeReceiver ---
         IntentFilter gpsFilter = new IntentFilter("GPS_Rango_Alerta");
-        registerReceiver(gpsRangeReceiver, gpsFilter);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(gpsRangeReceiver, gpsFilter, null, null, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(gpsRangeReceiver, gpsFilter);
+        }
 
         // --- OnClickListeners ---
         btnVerConsumo.setOnClickListener(v -> {
@@ -146,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
         };
 
 
-        // REGISTRAR EL RECEIVER
+        // REGISTRAR EL RECEIVER del MQTT
         IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(mqttReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -165,6 +169,8 @@ public class MainActivity extends AppCompatActivity {
             // Si no, esperamos a que el usuario responda
             Log.d(TAG, "No teníamos permisos. Solicitando...");
         }
+
+        locationClient = LocationServices.getFusedLocationProviderClient(this);
     }
 
     private void actualizarEstadoBoton() {
@@ -282,14 +288,24 @@ public class MainActivity extends AppCompatActivity {
         List<String> permissionsNeeded = new ArrayList<>();
 
         // Permisos de Ubicación (GPS)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
             permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
             permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
 
-        // Permiso de Notificaciones (solo Android 13+)
+        // Permiso FOREGROUND_SERVICE_LOCATION en Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) { // S = 31
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.FOREGROUND_SERVICE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED) {
+                permissionsNeeded.add(Manifest.permission.FOREGROUND_SERVICE_LOCATION);
+            }
+        }
+
+        // Permiso de Notificaciones en Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -309,6 +325,7 @@ public class MainActivity extends AppCompatActivity {
 
         return true; // Ya teníamos todos los permisos
     }
+
 
     /**
      * Callback que se ejecuta después de que el usuario acepta/rechaza los permisos.
