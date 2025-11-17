@@ -21,7 +21,7 @@ public class MqttService extends Service {
 
     private static final String TAG = "AGUA_MQTT";
     public static final String MQTT_MESSAGE_BROADCAST = "com.example.aguasmart.MQTT_MESSAGE";
-    //private static final String BROKER_URL = "tcp://broker.emqx.io:1883"; //broker alternativo
+//    private static final String BROKER_URL = "tcp://broker.emqx.io:1883"; //broker alternativo
     private static final String BROKER_URL = "tcp://broker.hivemq.com:1883";
 
     // TOPICS ///////////////////////////////////////////
