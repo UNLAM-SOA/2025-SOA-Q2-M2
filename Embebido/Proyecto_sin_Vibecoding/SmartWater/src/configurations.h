@@ -11,6 +11,12 @@
 #define MQTT_TOPIC_CONSUMPTION_LOG "aguasmart/consume"  // Publish consumption Topic
 #define MQTT_TOPIC_VALVE_STATE_LOG "aguasmart/valve/state"  // Publish valve state Topic
 #define MQTT_TOPIC_VALVE_CMD "aguasmart/valve/cmd"   // Command valve Topic  
+// This is the expected string from the CMD topic to
+// act like as a BUTTON_PUSH event.
+#define CMD_MSG_BUTTON_PUSH "button_push"
+// This is the expected string from the CMD topic to
+// act like as a DEACTIVATE_VALVE event.
+#define CMD_MSG_DEACTIVATE_VALVE "deactivate_valve"
 
 // ======== SYSTEM ========
 #define SERIAL_MONITOR_BAUD_RATE 115200

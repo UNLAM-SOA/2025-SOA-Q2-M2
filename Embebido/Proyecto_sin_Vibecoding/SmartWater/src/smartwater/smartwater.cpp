@@ -100,8 +100,9 @@ void SmartWater :: FSM(stEvent event){
           CURRENT_STATE = STATE_IDLE;
           break;
 
-        case EVENT_TYPE_VALVE_TIMEOUT:
+        case EVENT_TYPE_VALVE_DEACTIVATE:
           debug_print("[FSM] VALVE_OPEN -> NORMAL");
+          valve.deactivate();
           CURRENT_STATE = STATE_IDLE;
           break;
 
@@ -148,6 +149,12 @@ void SmartWater :: FSM(stEvent event){
           buzzer.PlayAlarm(2);
           CURRENT_STATE = STATE_ALARM_2;
           break;
+        
+        case EVENT_TYPE_VALVE_DEACTIVATE:
+          debug_print("[FSM] ALARM_1 -> NORMAL");
+          valve.deactivate();
+          CURRENT_STATE = STATE_IDLE;
+          break;
       }
       break;
       
@@ -164,6 +171,12 @@ void SmartWater :: FSM(stEvent event){
           buzzer.PlayAlarm(3);
           CURRENT_STATE = STATE_ALARM_3;
           break;
+        
+        case EVENT_TYPE_VALVE_DEACTIVATE:
+          debug_print("[FSM] ALARM_2 -> NORMAL");
+          valve.deactivate();
+          CURRENT_STATE = STATE_IDLE;
+          break;
       }
       break;
       
@@ -179,6 +192,12 @@ void SmartWater :: FSM(stEvent event){
           debug_print("[FSM] ALARM_3 -> ALARM_4");
           buzzer.PlayAlarm(4);
           CURRENT_STATE = STATE_LIMIT;
+          break;
+
+        case EVENT_TYPE_VALVE_DEACTIVATE:
+          debug_print("[FSM] ALARM_3 -> NORMAL");
+          valve.deactivate();
+          CURRENT_STATE = STATE_IDLE;
           break;
       }
       break;

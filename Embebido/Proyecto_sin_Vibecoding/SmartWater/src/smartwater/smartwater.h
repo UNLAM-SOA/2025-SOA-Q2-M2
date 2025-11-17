@@ -1,7 +1,6 @@
 #ifndef SMARTWATER_H
 #define SMARTWATER_H
 
-#include "wifi/wifi.h"
 #include "button/button.h"
 #include "buzzer/buzzer.h"
 #include "flowmeter/flowmeter.h"
@@ -12,7 +11,7 @@
 enum event_type_t {
   EVENT_TYPE_CONTINUE,
   EVENT_TYPE_BUTTON_PUSH,
-  EVENT_TYPE_VALVE_TIMEOUT,
+  EVENT_TYPE_VALVE_DEACTIVATE,
   EVENT_TYPE_ALARM_TIMEOUT,
   EVENT_TYPE_CONSUMPTION_THRESHOLD_1,
   EVENT_TYPE_CONSUMPTION_THRESHOLD_2,

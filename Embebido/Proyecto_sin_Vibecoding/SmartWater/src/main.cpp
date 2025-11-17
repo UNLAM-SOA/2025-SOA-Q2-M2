@@ -4,9 +4,6 @@
 #include "wifi/wifi.h"
 #include "mqtt/mqttclient.h"
 #include <PubSubClient.h>
-// This is the expected string from the CMD topic to
-// act like as a BUTTON_PUSH event.
-#define CMD_MSG_BUTTON_PUSH "button_push"
 
 // === FreeRTOS ===
 // Queues
@@ -42,9 +39,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   stEvent event;
 
-  if (msg == CMD_MSG_BUTTON_PUSH) {
-    event.type = EVENT_TYPE_BUTTON_PUSH;
-  } else {
+  if (msg == CMD_MSG_BUTTON_PUSH) event.type = EVENT_TYPE_BUTTON_PUSH;
+  else if (msg == CMD_MSG_DEACTIVATE_VALVE) event.type = EVENT_TYPE_VALVE_DEACTIVATE; 
+  else {
     Serial.println("[MQTT] MSG not recognized, ignored");
     return;
   }
