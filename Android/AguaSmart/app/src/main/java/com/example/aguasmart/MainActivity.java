@@ -42,6 +42,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MAIN ACTIVITY";
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 456;
     private static final int PERMISSIONS_REQUEST_CODE = 123;
+    private static final int REQ_LOCATION = 100;
+    private static final int REQ_NOTIFICATIONS = 101;
 
     // -----------------------------------------
     //               UI ELEMENTOS
@@ -78,11 +80,9 @@ public class MainActivity extends AppCompatActivity {
         cargarEstadoValvula();
 
         Log.d(TAG, "Chequeando permisos...");
-        if (checkAndRequestPermissions()) {
-            Log.d(TAG, "Permisos OK → iniciando servicios y registrando MQTT Receiver");
-            startServices();
-            registrarReceiverMqtt();
-        }
+        pedirPermisosUbicacion();
+        registrarReceiverMqtt();
+
     }
 
     @Override
@@ -271,68 +271,90 @@ public class MainActivity extends AppCompatActivity {
     //              PERMISOS
     // -----------------------------------------
 
-    private boolean checkAndRequestPermissions() {
+    private void pedirPermisosUbicacion() {
+        String[] permisosUbicacion = new String[]{
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.FOREGROUND_SERVICE_LOCATION
+        };
 
-        List<String> permissionsNeeded = new ArrayList<>();
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED)
-            permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION);
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED)
-            permissionsNeeded.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+        boolean ok = true;
+        for (String p : permisosUbicacion) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                ok = false;
             }
         }
 
-        if (!permissionsNeeded.isEmpty()) {
-            ActivityCompat.requestPermissions(this,
-                    permissionsNeeded.toArray(new String[0]),
-                    PERMISSIONS_REQUEST_CODE);
-            return false;
+        if (!ok) {
+            ActivityCompat.requestPermissions(this, permisosUbicacion, REQ_LOCATION);
+        } else {
+            pedirPermisoNotificaciones();
+        }
+    }
+
+
+    private void pedirPermisoNotificaciones() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
+                return;
+            }
         }
 
-        return true;
+        // Si ya está concedido, arrancar servicios
+        iniciarServicios();
+    }
+
+    private void iniciarServicios() {
+        Log.d("MAIN", "✔ Permisos completos → iniciando servicios");
+
+        startService(new Intent(this, MqttService.class));
+        startForegroundService(new Intent(this, GpsService.class));
+
+        registrarReceiverMqtt();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
-
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == PERMISSIONS_REQUEST_CODE) {
-
+        if (requestCode == REQ_LOCATION) {
             boolean allGranted = true;
-            for (int res : grantResults)
-                if (res != PackageManager.PERMISSION_GRANTED)
+            if (grantResults.length == 0) allGranted = false;
+            for (int res : grantResults) {
+                if (res != PackageManager.PERMISSION_GRANTED) {
                     allGranted = false;
+                    break;
+                }
+            }
 
             if (allGranted) {
-                Log.d(TAG, "¡Permisos de GPS CONCEDIDOS por el usuario!");
-                startServices();
-
+                Log.d(TAG, "Permisos de ubicación concedidos → pedir permiso de notificaciones");
+                pedirPermisoNotificaciones();
             } else {
-                Toast.makeText(this,
-                        "Se requieren permisos de Ubicación para esta función",
-                        Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "La app necesita permisos de ubicación para funcionar", Toast.LENGTH_LONG).show();
             }
+            return;
         }
 
-        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED)
-                Log.d(TAG, "Permiso de notificaciones concedido");
-            else
-                Log.w(TAG, "Permiso de notificaciones denegado");
+        if (requestCode == REQ_NOTIFICATIONS) {
+            boolean granted = (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED);
+
+            if (granted) {
+                Log.d(TAG, "Permiso de notificaciones concedido → iniciando servicios");
+                iniciarServicios();
+            } else {
+                Log.w(TAG, "Permiso de notificaciones DENEGADO. No se iniciarán los servicios que muestran notificaciones.");
+                Toast.makeText(this, "Sin permiso de notificaciones no se puede iniciar el servicio en primer plano", Toast.LENGTH_LONG).show();
+            }
+            return;
         }
     }
+
 
     // -----------------------------------------
     //       RECEIVER - ALERTA DE RANGO

@@ -1,5 +1,7 @@
 package com.example.aguasmart;
 
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
@@ -8,6 +10,7 @@ import android.util.Log;
 import android.os.Handler;
 
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
@@ -31,7 +34,13 @@ public class MqttService extends Service {
     public static final String TOPIC_VALVULA_CMD = "aguasmart/valve/cmd"; // Android → ESP32
     public static final String TOPIC_VALVULA_STATE = "aguasmart/valve/state"; // ESP32 → Android
     /// ////////////////////////////////////////////////
-
+    ///
+    /// NOTIFICACIONES DE CONSUMO
+    private static final float MAX_CAPACITY = 10f;
+    private static final float THRESHOLD_2 = MAX_CAPACITY * 0.50f;
+    private static final float THRESHOLD_3 = MAX_CAPACITY * 0.75f;
+    private static final float THRESHOLD_4 = MAX_CAPACITY;
+    ///
     private MqttClient mqttClient;
     private final Handler handler = new Handler();
     private boolean isReconnecting = false;
@@ -67,7 +76,9 @@ public class MqttService extends Service {
                     public void messageArrived(String topic, MqttMessage message) {
                         String msg = new String(message.getPayload());
                         Log.d(TAG, "Mensaje recibido → topic: " + topic + " payload: " + msg);
-
+                        if (topic.equals(TOPIC_CONSUMO)) {
+                            procesarConsumo(msg);
+                        }
                         Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
 
                         // Enviar topic + mensaje
@@ -176,6 +187,46 @@ public class MqttService extends Service {
     public IBinder onBind(Intent intent) {
         return binder;
     }
+
+    ///  NOTIFICACIONES DE CONSUMO ////
+    private void procesarConsumo(String payload) {
+        float consumo;
+        try {
+            consumo = Float.parseFloat(payload);
+        } catch (Exception e) {
+            return;
+        }
+
+        Log.d(TAG, "Consumo procesado en service: " + consumo);
+
+        if (consumo >= THRESHOLD_2 && consumo < THRESHOLD_3) {
+            enviarNotificacion("⚠️ Nivel moderado", "El nivel superó el 50%");
+        }
+        else if (consumo >= THRESHOLD_3 && consumo < THRESHOLD_4) {
+            enviarNotificacion("⚠️ Nivel crítico", "El nivel superó el 75%");
+        }
+        else if (consumo >= THRESHOLD_4) {
+            enviarNotificacion("🚨 Nivel máximo", "La válvula se apagará automáticamente");
+        }
+    }
+
+    private void enviarNotificacion(String titulo, String texto) {
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_ALERTAS)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(titulo)
+                .setContentText(texto)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        manager.notify((int) System.currentTimeMillis(), builder.build());
+    }
+
 
 
 }
