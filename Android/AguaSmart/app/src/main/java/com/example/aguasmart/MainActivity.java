@@ -58,6 +58,8 @@ public class MainActivity extends AppCompatActivity {
     // -----------------------------------------
 
     private boolean valvulaActiva = false;
+    private Boolean lastValveState = null;
+
     private BroadcastReceiver mqttReceiver;
     private FusedLocationProviderClient locationClient;
 
@@ -177,13 +179,26 @@ public class MainActivity extends AppCompatActivity {
     private void manejarEstadoValvula(String estado) {
 
         boolean nueva = estado.equals("active");
+
+        // Si el estado NO CAMBIÓ → no notificar
+        if (lastValveState != null && lastValveState == nueva) {
+            Log.d("VALVULA", "Estado repetido, no se notifica");
+            valvulaActiva = nueva;
+            runOnUiThread(this::actualizarEstadoBoton);
+            return;
+        }
+
+        // Estado cambió → actualizar estado
+        lastValveState = nueva;
         valvulaActiva = nueva;
 
+        // Guardar en SharedPreferences el último estado registrado
         getSharedPreferences("VALVE_PREFS", MODE_PRIVATE)
                 .edit()
                 .putBoolean("valvulaActiva", nueva)
                 .apply();
 
+        // Actualizar UI + notificar
         runOnUiThread(() -> {
             actualizarEstadoBoton();
             enviarNotificacionValvula(nueva);
