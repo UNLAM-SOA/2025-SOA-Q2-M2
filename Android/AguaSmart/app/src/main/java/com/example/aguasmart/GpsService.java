@@ -31,8 +31,8 @@ import com.google.android.gms.location.Priority;
 public class GpsService extends Service {
 
     private static final String TAG = "GpsService";
-    private static final float RADIO_LIMITE_METROS = 20.0f; // El radio de 10m
-    private static final long INTERVALO_ACTUALIZACION_MS = 2000; // 10 segundos
+    private static final float RADIO_LIMITE_METROS = 20.0f; // El radio de 20
+    private static final long INTERVALO_ACTUALIZACION_MS = 4000; // 4 segundos
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -65,10 +65,21 @@ public class GpsService extends Service {
                     return;
                 }
 
+                float accuracy = ubicacionActual.getAccuracy();
+
                 // --- El Cálculo de Distancia ---
                 float distancia = ubicacionActual.distanceTo(ubicacionEsp32);
-                Log.d(TAG, "Distancia actual al 'Punto Cero': " + distancia + " metros.");
+                // Estimo ruido mínimo = accuracy del punto actual
+                float noise = accuracy;
 
+                Log.d(TAG, "Distancia actual al 'Punto Cero': " + distancia + " metros." + "(accuracy=" + accuracy + ")");
+
+
+                //--- No considerar movimientos menores al error del GPS ---
+                if (distancia <= noise + 5) {
+                    Log.d(TAG, "Movimiento dentro del ruido → ignorado");
+                    return;
+                }
 
                 // Si aún no sabemos si está dentro o fuera, inicializar
                 if (!estaDentroDelRadio && distancia <= RADIO_LIMITE_METROS) {
@@ -129,10 +140,11 @@ public class GpsService extends Service {
         LocationRequest locationRequest = new LocationRequest.Builder(
                 Priority.PRIORITY_HIGH_ACCURACY,
                 INTERVALO_ACTUALIZACION_MS
-        ).build();
+        ).setMinUpdateDistanceMeters(1).build();
 
         // Chequeo de permisos (crucial)
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "No se puede iniciar GPS. Faltan permisos.");
             return;
         }
@@ -175,6 +187,7 @@ public class GpsService extends Service {
     private void enviarNotificacionDesactivacion() {
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this, 0, intent, PendingIntent.FLAG_IMMUTABLE
         );
@@ -204,8 +217,6 @@ public class GpsService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // Detener la escucha de GPS (muy importante para ahorrar batería)
-        fusedLocationClient.removeLocationUpdates(locationCallback);
         Log.i(TAG, "Servicio GPS destruido.");
     }
 
