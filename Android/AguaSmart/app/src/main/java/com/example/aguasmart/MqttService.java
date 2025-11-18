@@ -21,8 +21,8 @@ public class MqttService extends Service {
 
     private static final String TAG = "AGUA_MQTT";
     public static final String MQTT_MESSAGE_BROADCAST = "com.example.aguasmart.MQTT_MESSAGE";
-//    private static final String BROKER_URL = "tcp://broker.emqx.io:1883"; //broker alternativo
-    private static final String BROKER_URL = "tcp://broker.hivemq.com:1883";
+    private static final String BROKER_URL = "tcp://broker.emqx.io:1883"; //broker alternativo
+    //private static final String BROKER_URL = "tcp://broker.hivemq.com:1883";
 
     // TOPICS ///////////////////////////////////////////
     public static final String TOPIC_TEST = "pruebita";
@@ -47,65 +47,66 @@ public class MqttService extends Service {
 
     private void connect() {
         new Thread(() -> {
-        try{
-        String clientId = MqttClient.generateClientId();
-        mqttClient = new MqttClient(BROKER_URL, clientId, null);
+            try{
+                String clientId = MqttClient.generateClientId();
+                mqttClient = new MqttClient(BROKER_URL, clientId, null);
 
-        mqttClient.setCallback(new MqttCallbackExtended() {
-            @Override
-            public void connectComplete(boolean reconnect, String serverURI) {
-                Log.d(TAG, "Conectado a: " + serverURI);
-            }
+                mqttClient.setCallback(new MqttCallbackExtended() {
+                    @Override
+                    public void connectComplete(boolean reconnect, String serverURI) {
+                        Log.d(TAG, "Conectado a: " + serverURI);
+                    }
 
-            @Override
-            public void connectionLost(Throwable cause) {
-                Log.w(TAG, "Conexión perdida", cause);
+                    @Override
+                    public void connectionLost(Throwable cause) {
+                        Log.w(TAG, "Conexión perdida", cause);
+                        scheduleReconnect();
+                    }
+
+                    @Override
+                    public void messageArrived(String topic, MqttMessage message) {
+                        String msg = new String(message.getPayload());
+                        Log.d(TAG, "Mensaje recibido → topic: " + topic + " payload: " + msg);
+
+                        Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
+
+                        // Enviar topic + mensaje
+                        intent.putExtra("topic", topic);
+                        intent.putExtra("payload", msg);
+
+                        intent.setPackage(getPackageName());
+                        sendBroadcast(intent);
+                    }
+
+                    @Override
+                    public void deliveryComplete(IMqttDeliveryToken token) {
+                        Log.d(TAG, "Mensaje entregado");
+                    }
+                });
+
+                MqttConnectOptions options = new MqttConnectOptions();
+                options.setCleanSession(true);
+
+                mqttClient.connect(options);
+                mqttClient.subscribe(TOPIC_TEST, 0);
+                mqttClient.subscribe(TOPIC_VALVULA_CMD, 0);
+                mqttClient.subscribe(TOPIC_VALVULA_STATE, 0);
+                mqttClient.subscribe(TOPIC_CONSUMO, 0);
+
+                //Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_TEST);
+                Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_CONSUMO);
+                Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_VALVULA_CMD);
+                Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_VALVULA_STATE);
+                isReconnecting = false;
+
+            } catch (MqttException e) {
+                Log.e(TAG, "Error conectando al broker MQTT", e);
+                scheduleReconnect();
+            } catch (Exception e) {
+                Log.e(TAG, "Error inesperado en MQTT", e);
                 scheduleReconnect();
             }
-
-            @Override
-            public void messageArrived(String topic, MqttMessage message) {
-                String msg = new String(message.getPayload());
-                Log.d(TAG, "Mensaje recibido → topic: " + topic + " payload: " + msg);
-
-                Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
-
-                // Enviar topic + mensaje
-                intent.putExtra("topic", topic);
-                intent.putExtra("payload", msg);
-
-                sendBroadcast(intent);
-            }
-
-            @Override
-            public void deliveryComplete(IMqttDeliveryToken token) {
-                Log.d(TAG, "Mensaje entregado");
-            }
-        });
-
-        MqttConnectOptions options = new MqttConnectOptions();
-        options.setCleanSession(true);
-
-        mqttClient.connect(options);
-        mqttClient.subscribe(TOPIC_TEST, 0);
-        mqttClient.subscribe(TOPIC_VALVULA_CMD, 0);
-        mqttClient.subscribe(TOPIC_VALVULA_STATE, 0);
-        mqttClient.subscribe(TOPIC_CONSUMO, 0);
-
-        //Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_TEST);
-        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_CONSUMO);
-        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_VALVULA_CMD);
-        Log.i(TAG, "Conectado y suscrito al tópico: " + TOPIC_VALVULA_STATE);
-        isReconnecting = false;
-
-        } catch (MqttException e) {
-            Log.e(TAG, "Error conectando al broker MQTT", e);
-            scheduleReconnect();
-        } catch (Exception e) {
-            Log.e(TAG, "Error inesperado en MQTT", e);
-            scheduleReconnect();
-        }
-        }).start(); // Y .start() para que comience
+        }).start();
     }
 
     @Override
