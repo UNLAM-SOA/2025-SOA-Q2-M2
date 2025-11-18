@@ -42,9 +42,10 @@ public class ConsumoActivity extends AppCompatActivity {
         // Limpiar secciones por si vienen por defecto
 
         gauge.setSpeedometerWidth(100);
+        gauge.setTickNumber(6);
         gauge.setWithTremble(false);
 
-        float maxCapacity = 10f;
+        float maxCapacity = 5f;
         gauge.setMaxSpeed(maxCapacity); // maxima capacidad del medidor
 
         // Zonas del medidor

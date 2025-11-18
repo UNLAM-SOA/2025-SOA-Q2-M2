@@ -36,8 +36,8 @@ public class MqttService extends Service {
     /// ////////////////////////////////////////////////
     ///
     /// NOTIFICACIONES DE CONSUMO
-    private static final float MAX_CAPACITY = 10f;
-    private static final float THRESHOLD_2 = MAX_CAPACITY * 0.50f;
+    private static final float MAX_CAPACITY = 5f;
+    private static final float THRESHOLD_2 = MAX_CAPACITY * 0.25f;
     private static final float THRESHOLD_3 = MAX_CAPACITY * 0.75f;
     private static final float THRESHOLD_4 = MAX_CAPACITY;
     private int lastThreshold = 0;
