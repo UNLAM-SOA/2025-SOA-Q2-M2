@@ -40,6 +40,7 @@ public class MqttService extends Service {
     private static final float THRESHOLD_2 = MAX_CAPACITY * 0.50f;
     private static final float THRESHOLD_3 = MAX_CAPACITY * 0.75f;
     private static final float THRESHOLD_4 = MAX_CAPACITY;
+    private int lastThreshold = 0;
     ///
     private MqttClient mqttClient;
     private final Handler handler = new Handler();
@@ -197,6 +198,23 @@ public class MqttService extends Service {
             return;
         }
 
+        int currentThreshold = 0;
+
+        if (consumo >= THRESHOLD_2 && consumo < THRESHOLD_3) {
+            currentThreshold = 1;
+        }
+        else if (consumo >= THRESHOLD_3 && consumo < THRESHOLD_4) {
+            currentThreshold = 2;
+        }
+        else if (consumo >= THRESHOLD_4) {
+            currentThreshold = 3;
+        }
+
+        // Si el umbral NO cambió → no mandar notificación
+        if (currentThreshold == lastThreshold) {
+            return;
+        }
+
         Log.d(TAG, "Consumo procesado en service: " + consumo);
 
         if (consumo >= THRESHOLD_2 && consumo < THRESHOLD_3) {
@@ -208,6 +226,9 @@ public class MqttService extends Service {
         else if (consumo >= THRESHOLD_4) {
             enviarNotificacion("🚨 Nivel máximo", "La válvula se apagará automáticamente");
         }
+
+        lastThreshold = currentThreshold;
+
     }
 
     private void enviarNotificacion(String titulo, String texto) {
