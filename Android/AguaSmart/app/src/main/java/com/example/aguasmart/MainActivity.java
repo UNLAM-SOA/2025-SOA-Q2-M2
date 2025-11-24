@@ -40,8 +40,6 @@ public class MainActivity extends AppCompatActivity {
     // -----------------------------------------
 
     private static final String TAG = "MAIN ACTIVITY";
-    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 456;
-    private static final int PERMISSIONS_REQUEST_CODE = 123;
     private static final int REQ_LOCATION = 100;
     private static final int REQ_NOTIFICATIONS = 101;
 
@@ -83,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
 
         Log.d(TAG, "Chequeando permisos...");
         pedirPermisosUbicacion();
+        pedirPermisoNotificaciones();
         registrarReceiverMqtt();
 
     }
@@ -302,11 +301,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (!ok) {
             ActivityCompat.requestPermissions(this, permisosUbicacion, REQ_LOCATION);
-        } else {
-            pedirPermisoNotificaciones();
         }
     }
-
 
     private void pedirPermisoNotificaciones() {
         if (Build.VERSION.SDK_INT >= 33) {
@@ -314,12 +310,8 @@ public class MainActivity extends AppCompatActivity {
                     != PackageManager.PERMISSION_GRANTED) {
 
                 requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFICATIONS);
-                return;
             }
         }
-
-        // Si ya está concedido, arrancar servicios
-        iniciarServicios();
     }
 
     private void iniciarServicios() {
@@ -413,20 +405,6 @@ public class MainActivity extends AppCompatActivity {
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         manager.notify(1002, builder.build());
-    }
-
-    // -----------------------------------------
-    //      SERVICIOS (MQTT + GPS)
-    // -----------------------------------------
-
-    private void startServices() {
-
-        Log.d(TAG, "¡Función startServices() EJECUTADA!");
-
-        startService(new Intent(this, MqttService.class));
-
-        if (!isServiceRunning(this))
-            startForegroundService(new Intent(this, GpsService.class));
     }
 }
 

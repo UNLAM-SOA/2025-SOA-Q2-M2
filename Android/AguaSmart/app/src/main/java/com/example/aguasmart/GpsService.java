@@ -32,7 +32,7 @@ public class GpsService extends Service {
 
     private static final String TAG = "GpsService";
     private static final float RADIO_LIMITE_METROS = 20.0f; // El radio de 20
-    private static final long INTERVALO_ACTUALIZACION_MS = 4000; // 4 segundos
+    private static final long INTERVALO_ACTUALIZACION_MS = 2000; // 4 segundos
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -69,14 +69,11 @@ public class GpsService extends Service {
 
                 // --- El Cálculo de Distancia ---
                 float distancia = ubicacionActual.distanceTo(ubicacionEsp32);
-                // Estimo ruido mínimo = accuracy del punto actual
-                float noise = accuracy;
 
                 Log.d(TAG, "Distancia actual al 'Punto Cero': " + distancia + " metros." + "(accuracy=" + accuracy + ")");
 
-
                 //--- No considerar movimientos menores al error del GPS ---
-                if (distancia <= noise + 5) {
+                if (accuracy > 50) {
                     Log.d(TAG, "Movimiento dentro del ruido → ignorado");
                     return;
                 }
@@ -109,7 +106,7 @@ public class GpsService extends Service {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
 
-        Notification notification = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_SERVICE) // Usa el ID de MyApp
+        Notification notification = new NotificationCompat.Builder(this, MyApp.CHANNEL_ID_SERVICE)
                 .setContentTitle("AguaSmart Conectado")
                 .setContentText("Protegiendo la válvula por ubicación GPS.")
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -117,7 +114,7 @@ public class GpsService extends Service {
                 .setContentIntent(pendingIntent)
                 .build();
 
-        startForeground(2, notification); // ID 2 (para no confundir con el de BLE)
+        startForeground(2, notification);
 
         // --- Iniciar la escucha de GPS ---
         iniciarActualizacionesDeUbicacion();
@@ -142,7 +139,7 @@ public class GpsService extends Service {
                 INTERVALO_ACTUALIZACION_MS
         ).setMinUpdateDistanceMeters(1).build();
 
-        // Chequeo de permisos (crucial)
+        // Chequeo de permisos
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "No se puede iniciar GPS. Faltan permisos.");
