@@ -1,7 +1,4 @@
 package com.example.aguasmart;
-
-import static com.example.aguasmart.GpsService.isServiceRunning;
-
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationManager;
@@ -22,16 +19,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
-
 import com.google.android.gms.tasks.CancellationToken;
 import com.google.android.gms.tasks.OnTokenCanceledListener;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -82,8 +75,10 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Chequeando permisos...");
         pedirPermisosUbicacion();
         pedirPermisoNotificaciones();
+        if (todosLosPermisosListos()) {
+            iniciarServicios();
+        }
         registrarReceiverMqtt();
-
     }
 
     @Override
@@ -362,6 +357,22 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private boolean todosLosPermisosListos() {
+
+        boolean ubicacionOK =
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        == PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                == PackageManager.PERMISSION_GRANTED;
+
+        boolean notifOK = true;
+        if (Build.VERSION.SDK_INT >= 33) {
+            notifOK = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+
+        return ubicacionOK && notifOK;
+    }
 
     // -----------------------------------------
     //       RECEIVER - ALERTA DE RANGO
