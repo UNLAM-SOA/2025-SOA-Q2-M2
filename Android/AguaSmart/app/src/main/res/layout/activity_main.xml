@@ -60,4 +60,12 @@
         android:backgroundTint="@android:color/holo_red_dark"
         android:textColor="?attr/colorOnSurface" />
 
+    <Button
+        android:id="@+id/btnIrShake"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Detectar Movimiento (Shake)"
+        android:backgroundTint="#FF9800"
+        android:textColor="@android:color/white"/>
+
 </LinearLayout>

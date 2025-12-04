@@ -4,6 +4,10 @@
     package="com.example.aguasmart">
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--Le avisamos al sistema que la app va a usar la funcionalidad vibración-->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -36,6 +40,11 @@
             android:name=".GpsService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+
+
+        <activity android:name=".ShakeActivity" android:exported="false" />
+
 
         <activity
             android:name=".MainActivity"

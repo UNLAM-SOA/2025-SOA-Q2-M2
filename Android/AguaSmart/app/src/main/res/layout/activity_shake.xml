@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- Icono o imagen ilustrativa -->
+    <ImageView
+        android:id="@+id/imgShake"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/logo2"
+        android:layout_marginBottom="24dp" />
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="¡SHAKE!"
+    android:textSize="28sp"
+    android:textStyle="bold"
+    android:textColor="#FAFAFA" />
+
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="Agite el teléfono para enviar un mensaje al Broker."
+    android:gravity="center"
+    android:textSize="16sp"
+    android:layout_marginTop="16dp"
+    android:textColor="#FAFAFA" />
+
+<TextView
+    android:id="@+id/tvEstadoShake"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="Esperando Shake..."
+    android:textSize="14sp"
+    android:textStyle="italic"
+    android:layout_marginTop="32dp"
+    android:textColor="#4CAF50" />
+
+<Button
+    android:id="@+id/btnVolver"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="Volver al Menú"
+    android:layout_marginTop="48dp" />
+
+</LinearLayout>

@@ -33,6 +33,8 @@ public class MqttService extends Service {
     public static final String TOPIC_CONSUMO = "aguasmart/consume";
     public static final String TOPIC_VALVULA_CMD = "aguasmart/valve/cmd"; // Android → ESP32
     public static final String TOPIC_VALVULA_STATE = "aguasmart/valve/state"; // ESP32 → Android
+
+    public static final String TOPIC_MSJ_SHAKE = "aguasmart/alertas/shake"; // Android -> ESP32
     /// ////////////////////////////////////////////////
     ///
     /// NOTIFICACIONES DE CONSUMO
@@ -47,6 +49,9 @@ public class MqttService extends Service {
     private boolean isReconnecting = false;
     private static final int RECONNECT_DELAY_MS = 5000; // 5 segundos
     private final IBinder binder = new LocalBinder();
+
+    private String mensajePendiente = null;
+    private String topicPendiente = null;
 
 
     @Override
@@ -65,6 +70,15 @@ public class MqttService extends Service {
                     @Override
                     public void connectComplete(boolean reconnect, String serverURI) {
                         Log.d(TAG, "Conectado a: " + serverURI);
+
+                        //Si había algo pendiente, lo enviamos ahora
+                        if (mensajePendiente != null && topicPendiente != null) {
+                            Log.i(TAG, "¡Conexión lista! Enviando mensaje pendiente...");
+                            publish(mensajePendiente, topicPendiente);
+                            // Limpiamos las variables
+                            mensajePendiente = null;
+                            topicPendiente = null;
+                        }
                     }
 
                     @Override
@@ -80,6 +94,7 @@ public class MqttService extends Service {
                         if (topic.equals(TOPIC_CONSUMO)) {
                             procesarConsumo(msg);
                         }
+                        //Intent implicito, grito al sistema que llego mensaje con etiqueta MQTT_MESSAGE_BROADCAST
                         Intent intent = new Intent(MQTT_MESSAGE_BROADCAST);
 
                         // Enviar topic + mensaje
@@ -153,6 +168,8 @@ public class MqttService extends Service {
                 Log.d(TAG, "Mensaje publicado: " + message);
             } else {
                 Log.w(TAG, "No se puede publicar, MQTT no conectado");
+                mensajePendiente = message;
+                topicPendiente = topic;
             }
         } catch (MqttException e) {
             Log.e(TAG, "Error publicando mensaje MQTT", e);
@@ -177,6 +194,8 @@ public class MqttService extends Service {
         }
         super.onDestroy();
     }
+
+    //Necesario para la comunicación entre la activity y el servicio.
     public class LocalBinder extends Binder {
         public MqttService getService() {
             return MqttService.this;

@@ -44,6 +44,9 @@ public class MainActivity extends AppCompatActivity {
     private Button btnValvula;
     private Button btnFijarUbicacion;
 
+    //Boton al nuevo layout ShakeActivity
+    private Button btnIrShake;
+
     // -----------------------------------------
     //               VARIABLES
     // -----------------------------------------
@@ -97,6 +100,11 @@ public class MainActivity extends AppCompatActivity {
         btnVerConsumo = findViewById(R.id.btnVerConsumo);
         btnValvula = findViewById(R.id.btnValvula);
         btnFijarUbicacion = findViewById(R.id.btnFijarUbicacion);
+
+        //Aca se encuentra el boton de "Detectar movimiento (shake)"
+        //Recordar que se agrego en el activity_main.xml para que sea visible en ese layout
+        //Luego se creo el activity_shake, la cual es una pantalla personalizada unicamente para el shake.
+        btnIrShake = findViewById(R.id.btnIrShake);
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -116,6 +124,22 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, ConsumoActivity.class);
             startActivity(intent);
         });
+
+        // --- NUEVO LISTENER PARA SHAKE ---
+        //Esto es el puente entre mainActivity y ShakeActivity
+        //Revisamos el ID del boton, si el ID existe, entra. Si no existe el ID btnIrShake == NULL.
+        // V-> {....} es una lamda, todo lo que se encuentra en el dentro del scope se ejecuta en el momento exacto que hace click
+        // btnIrShake.setOnClickListener Esta son las orejas del boton, es decir, escucha el click.
+        //Creamos un objeto del tipo intent que me va a permitir viajar a la otra pantalla.
+        //En ANDROID para cambiar de pantallas usamos los INTENTS (no existe el cambiar pantallas)
+        //intent (desde donde salgos, hacia dode voy) -> Creamos la intención de ir de un punto a otro.
+        //El startActivity(intent) basicamente lo que hace es decirle a android "che ejecutame este intente que acabo de crear"
+        //Cuando lo hace, ANDROID va a buscar la pantalla "hacia donde voy" y la pone frente al ojo del usuario.
+        btnIrShake.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, ShakeActivity.class);
+            startActivity(intent);
+        });
+        // ---------------------------------
 
         btnValvula.setOnClickListener(v -> {
             enviarMensajeMqtt(this, "button_push", MqttService.TOPIC_VALVULA_CMD);
@@ -151,12 +175,16 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
+                //Esta parte es solo para LOG y ver si se recibe el consumo
                 if (topic.trim().equals(MqttService.TOPIC_CONSUMO)) {
                     Log.d("MAIN", "Nuevo consumo: " + payload);
                 }
             }
         };
 
+        //El intentFilter me permite filtrar unicamente lo que quiero escuchar.
+        //En nuestro caso mensajes de MQTT_MESSAGER_BROADCAST.
+        //El mqttReceiver (Broadcast Receiver) es la oreja que esucha lo que filtramos
         IntentFilter filter = new IntentFilter(MqttService.MQTT_MESSAGE_BROADCAST);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -418,4 +446,3 @@ public class MainActivity extends AppCompatActivity {
         manager.notify(1002, builder.build());
     }
 }
-
